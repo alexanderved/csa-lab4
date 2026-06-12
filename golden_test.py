@@ -5,8 +5,8 @@ import os
 import tempfile
 
 import pytest
-from src.translator import translate
 from src.simulator import simulate
+from src.translator import translate
 
 MAX_LOG = 10000
 

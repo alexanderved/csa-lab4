@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import argparse
 import ast
+import logging
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Literal, TextIO
 
-import logging
 import yaml
 from src.common import (
     ADDRESS_INSTRUCTION_SIZE,
@@ -24,7 +24,6 @@ from src.common import (
     from_little_endian,
     to_little_endian,
 )
-
 
 START_ADDR = 0x0
 INT_ADDR = ADDRESS_INSTRUCTION_SIZE
@@ -139,10 +138,7 @@ def extract_instr(data: list[int]):
     value = to_little_endian(data[0])[0]
 
     opcode = Opcode(value >> 2)
-    addr_mode = AddressMode(value & 0b11)
-
-    if opcode in ADDRESSLESS_INSTRUCTIONS:
-        addr_mode = None
+    addr_mode = AddressMode(value & 0b11) if opcode not in ADDRESSLESS_INSTRUCTIONS else None
 
     return opcode, addr_mode
 
@@ -267,7 +263,7 @@ class Memory:
         if addr > len(self.content):
             raise ValueError("Несуществующий адрес памяти")
 
-        return from_little_endian(self.content[addr : addr + VECTOR_SIZE])
+        return from_little_endian(bytes(self.content[addr : addr + VECTOR_SIZE]))
 
     def write_word(self, addr: int, value: int):
         if addr > len(self.content):
@@ -296,7 +292,7 @@ def to_u32(value: int):
 
 class InputDevice:
     tg: TickGenerator
-    queue: list[(int, str | int)]
+    queue: list[tuple[int, str | int]]
     idx: int
 
     def __init__(self, tg, queue):
@@ -398,7 +394,7 @@ class Cycle:
         if d is None:
             return debug_info_template("NOP", cu)
 
-        if type(d) is not str:
+        if callable(d):
             d = d(cu, signals)
 
         return debug_info_template(d, cu, self.is_op_start and step == 0)
@@ -515,7 +511,7 @@ INTERRUPT_CYCLE = Cycle(
     debug_info=[
         lambda cu, s: (
             f"INT: PC <- {mux(s.sel_pc, '', 'PC + 4', 'PC + 1', f'0x{cu.dp.memory.read_word(cu.dp.ar):X}')}"
-            + (f", AR, SP <- SP - 4" if cu.ei & s.intrq else "")
+            + (", AR, SP <- SP - 4" if cu.ei & s.intrq else "")
         ),
         "INT: MEM[SP] <- PC, AR, SP <- SP - 4",
         "INT: MEM[SP] <- MASK, AR, SP <- SP - 4",
@@ -641,6 +637,7 @@ class ControlUnit:
         self.dp = dp
 
         self.ei = 1
+        self.port = 0
         self.pc = START_ADDR
 
         self.stage = Stage.FETCH_INSTR
@@ -676,7 +673,7 @@ class ControlUnit:
             transition_args = []
 
         new_signals = cycle.signals[self.cycle_step]
-        if type(new_signals) is not SignalContext:
+        if callable(new_signals):
             new_signals = new_signals(*exec_args)
 
         self.merge_signals(signals, new_signals)
@@ -854,7 +851,7 @@ class ControlUnit:
                     self.cycle_step = 0
 
             case _:
-                assert False
+                raise ValueError(f"Неожиданный опкод {opcode} в цикле выполнения операции")
 
         self.merge_signals(signals, new_signals)
 
@@ -901,7 +898,7 @@ class ControlUnit:
                     op_size, do_jump = None, True
 
             case _:
-                assert False
+                raise ValueError(f"Неожиданный опкод {opcode} в цикле выполнения перехода")
 
         return op_size, do_jump
 
@@ -957,9 +954,6 @@ class ControlUnit:
 
         self.dp.simulate(self, signals)
 
-        if signals.latch_pc == HIGH_SIGNAL:
-            self.pc = mux(signals.sel_pc, INT_ADDR, self.pc + 4, self.pc + 1, self.dp.data[0])
-
         if signals.reset_ei == HIGH_SIGNAL:
             self.ei = 0
             self.is_isr = True
@@ -967,8 +961,12 @@ class ControlUnit:
             self.ei = 1
             self.is_isr = False
 
-        if signals.latch_port:
-            self.port = self.dp.data[0]
+        self.pc = (
+            mux(signals.sel_pc, INT_ADDR, self.pc + 4, self.pc + 1, self.dp.data[0])
+            if signals.latch_pc == HIGH_SIGNAL
+            else self.pc
+        )
+        self.port = self.dp.data[0] if signals.latch_port else self.port
 
         self.next_stage()
 
@@ -1039,7 +1037,7 @@ class DataPath:
 
         return [n, z, v, c]
 
-    def make_mask(self, flags: list[int], signals: SignalContext):
+    def make_mask(self, flags: list[list[int]], signals: SignalContext):
         mask_cond_map = {
             ALU_OP_MASK_EQ: lambda f: f[ZF] == 1,
             ALU_OP_MASK_NE: lambda f: f[ZF] == 0,
@@ -1132,9 +1130,9 @@ class DataPath:
             res, f = None, None
             try:
                 res, f = self.execute_single_alu_op(i, signals)
-            except ValueError as e:
+            except ValueError:
                 if signals.latch_ac[i] == HIGH_SIGNAL:
-                    raise e
+                    raise
                 res, f = 0, [0] * 4
 
             results.append(res)
@@ -1223,7 +1221,7 @@ def simulate(bin_path: str, config_path: str):
     print(f"Instructions executed: {nb_instr}")
     print(f"Ticks: {tg.tick}")
     print("-------------------------- Output --------------------------")
-    print(f'String: "{"".join(out_devs[1].queue)}"')
+    print(f'String: "{"".join(map(str, out_devs[1].queue))}"')
     print(f"Array: {out_devs[2].queue}")
 
 

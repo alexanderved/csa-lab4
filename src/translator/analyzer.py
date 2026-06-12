@@ -348,7 +348,7 @@ def is_vectorizable_func(func: FuncDef, ctx: AnalyzerContext):
     vec_ctx = VectorContext(func, ind_var)
     res = is_vectorizable_expr(main_loop, vec_ctx, ctx)
 
-    tail_exprs = []
+    tail_exprs: list[Expr] = []
     find_tail_exprs(main_loop, tail_exprs, ctx)
     res = res and all(map(lambda e: type(e) is FuncCall and e.name == func.name, tail_exprs))
 

@@ -210,7 +210,7 @@ def hex_little_endian(le: bytes):
 
 
 def bin_to_hex(binary: str):
-    return "{:>02}".format(hex(int(binary, 2)).replace("0x", "").upper())
+    return f"{int(binary, 2):>02X}"
 
 
 def dec_to_bin(dec: int):

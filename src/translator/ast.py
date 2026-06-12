@@ -110,6 +110,7 @@ class VarDef(SpecialForm):
 
     def replace_child(self, orig: Expr, new: Expr):
         if self.value is orig:
+            assert type(new) is Value | MemAlloc
             self.value = new
 
 

@@ -121,7 +121,7 @@ class MemoryMap:
 
     str_lit_addresses: dict[str, int]
 
-    free_memory_size: int | None
+    free_memory_size: int
     free_memory_used: int
 
     global_vars_addresses: dict[Symbol, int]
@@ -170,8 +170,9 @@ class MemoryMap:
         global_var_block_addr = self.string_literals_end_addr() + self.free_memory_size
         self.global_vars_addresses[var] = global_var_block_addr + len(self.global_vars_addresses) * WORD_SIZE
 
-        if type(ctx.global_vars[var].value) is MemAlloc:
-            size = ctx.global_vars[var].value.size
+        value = ctx.global_vars[var].value
+        if isinstance(value, MemAlloc):
+            size = value.size
             self.global_var_allocs_addresses[var] = self.next_free_block_addr(size)
 
     def map_static_memory(self, ctx: TranslatorContext):
@@ -349,9 +350,9 @@ def translate_user_def_func(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorC
             translate_expr(arg, mm, ctx)
             mm.generate_instruction(Instruction(Opcode.ST, AddressMode.SP, ctx.env.param_sp_offset(param)))
 
-        clear_env = ctx.env
+        clear_env: Env | None = ctx.env
         nb_pops = 0
-        while clear_env is not func_env:
+        while clear_env is not None and clear_env is not func_env:
             nb_pops += len(clear_env.vars)
             clear_env = clear_env.prev
 
@@ -571,7 +572,7 @@ def jmp_vector_loop_start(vec_start_addr, ind_var, mm: MemoryMap, ctx: Translato
     mm.generate_instruction(Instruction(Opcode.JMP, AddressMode.IMM, vec_start_addr))
 
 
-def translate_vector_operand(operand: Expr, mm: MemoryMap, ctx: TranslatorContext):
+def translate_vector_operand(operand: Expr, ind_var: Symbol, mm: MemoryMap, ctx: TranslatorContext):
     match operand:
         case Value(value=Symbol() as var):
             return AddressMode.SP, ctx.env.var_sp_offset(var), False, False
@@ -585,7 +586,7 @@ def translate_vector_operand(operand: Expr, mm: MemoryMap, ctx: TranslatorContex
             return AddressMode.SP_IND, 0, True, False
 
         case _:
-            translate_vector_expr(operand, mm, ctx)
+            translate_vector_expr(operand, ind_var, mm, ctx)
             mm.generate_vpush(ctx)
 
             return AddressMode.SP, 0, False, True
@@ -601,7 +602,7 @@ def translate_vector_func_call(func_call: FuncCall, ind_var: Symbol, mm: MemoryM
     name = func_call.name.value
 
     if name in op_map:
-        addr_mode, operand, needs_pop, needs_vpop = translate_vector_operand(func_call.args[1], mm, ctx)
+        addr_mode, operand, needs_pop, needs_vpop = translate_vector_operand(func_call.args[1], ind_var,  mm, ctx)
         translate_vector_expr(func_call.args[0], ind_var, mm, ctx)
 
         opcode = op_map[name]
@@ -630,7 +631,7 @@ def translate_vector_cond(cond: Expr, ind_var: Symbol, mm: MemoryMap, ctx: Trans
     }
 
     if cond.name.value in cmp_map:
-        addr_mode, operand, needs_pop, needs_vpop = translate_vector_operand(cond.args[1], mm, ctx)
+        addr_mode, operand, needs_pop, needs_vpop = translate_vector_operand(cond.args[1], ind_var, mm, ctx)
         translate_vector_expr(cond.args[0], ind_var, mm, ctx)
 
         opcode = cmp_map[cond.name.value]
@@ -670,7 +671,7 @@ def collect_writes(expr: Expr, root_env: Env, writes: list[Symbol], arr_writes: 
 
 
 def replace_mem_access(parent: Expr, child: Expr, root_env: Env, arr_writes: list[Symbol], ctx: TranslatorContext):
-    new_child = None
+    new_child: Value | VarSet | None = None
     match child:
         case MemRead(ptr=var) if not ctx.env.find_env_with(var).is_child_of(root_env) and var in arr_writes:
             new_child = Value(child.line, var)
@@ -691,7 +692,7 @@ def replace_mem_access(parent: Expr, child: Expr, root_env: Env, arr_writes: lis
 def create_fake_expr(new: Expr, root_env: Env, writes: list[Symbol], arr_writes: list[Symbol], ctx: TranslatorContext):
     match new:
         case LetBlock(_, new_vars, new_body):
-            for new_var_init in new_vars:
+            for new_var_init in new_vars.values():
                 nc = replace_mem_access(new, new_var_init, root_env, arr_writes, ctx)
                 create_fake_expr(nc, root_env, writes, arr_writes, ctx)
 
@@ -724,12 +725,12 @@ def create_fake_ast(
     root_let_block = LetBlock(None, {}, [copy.deepcopy(expr)])
     create_fake_expr(root_let_block, ctx.env, writes, arr_writes, ctx)
 
-    tmp_vars = {Symbol(VECTOR_BRANCH_PREFIX + v.value): Value(None, v) for v in writes}
-    tmp_arr_vars = {
+    tmp_vars: dict[Symbol, Expr] = {Symbol(VECTOR_BRANCH_PREFIX + v.value): Value(None, v) for v in writes}
+    tmp_arr_vars: dict[Symbol, Expr] = {
         Symbol(VECTOR_BRANCH_PREFIX + v.value): MemRead(None, v, WORD_SIZE, Value(None, ind_var)) for v in arr_writes
     }
-    tmp_var_apply = [VarSet(None, v, Value(None, Symbol(VECTOR_BRANCH_PREFIX + v.value)), True) for v in writes]
-    tmp_arr_var_apply = [
+    tmp_var_apply: list[Expr] = [VarSet(None, v, Value(None, Symbol(VECTOR_BRANCH_PREFIX + v.value)), True) for v in writes]
+    tmp_arr_var_apply: list[Expr] = [
         MemWrite(None, v, WORD_SIZE, Value(None, ind_var), Value(None, Symbol(VECTOR_BRANCH_PREFIX + v.value)), True)
         for v in arr_writes
     ]
@@ -743,16 +744,16 @@ def create_fake_ast(
 def translate_vector_if_expr(if_expr: IfExpr, ind_var: Symbol, mm: MemoryMap, ctx: TranslatorContext):
     translate_vector_cond(if_expr.cond, ind_var, mm, ctx)
 
-    if_writes = []
-    if_arr_writes = []
+    if_writes: list[Symbol] = []
+    if_arr_writes: list[Symbol] = []
     collect_writes(if_expr.if_branch, ctx.env, if_writes, if_arr_writes, ctx)
     if_branch_ast = create_fake_ast(if_expr.if_branch, ind_var, if_writes, if_arr_writes, ctx)
     translate_vector_expr(if_branch_ast, ind_var, mm, ctx)
 
     mm.generate_instruction(Instruction(Opcode.VMNOT))
 
-    else_writes = []
-    else_arr_writes = []
+    else_writes: list[Symbol] = []
+    else_arr_writes: list[Symbol] = []
     collect_writes(if_expr.else_branch, ctx.env, else_writes, else_arr_writes, ctx)
     else_branch_ast = create_fake_ast(if_expr.else_branch, ind_var, else_writes, else_arr_writes, ctx)
     translate_vector_expr(else_branch_ast, ind_var, mm, ctx)
@@ -925,6 +926,7 @@ def write_binary_instruction(binary: BinaryIO, instr: Instruction, mm: MemoryMap
     if instr.opcode in ADDRESSLESS_INSTRUCTIONS:
         binary.write(bytes([bin_opcode]))
     else:
+        assert instr.addr_mode is not None
         bin_addr_mode = to_little_endian(instr.addr_mode.value)[0]
 
         bin_operand = []
@@ -999,6 +1001,8 @@ def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, label:
     if instr.opcode in ADDRESSLESS_INSTRUCTIONS:
         instr_str = f"{instr.opcode.name}"
     else:
+        assert instr.addr_mode is not None
+        
         addr_map = {
             AddressMode.IMM: "{}",
             AddressMode.ADDR: "MEM[{}]",
