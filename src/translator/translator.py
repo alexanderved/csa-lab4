@@ -602,7 +602,7 @@ def translate_vector_func_call(func_call: FuncCall, ind_var: Symbol, mm: MemoryM
     name = func_call.name.value
 
     if name in op_map:
-        addr_mode, operand, needs_pop, needs_vpop = translate_vector_operand(func_call.args[1], ind_var,  mm, ctx)
+        addr_mode, operand, needs_pop, needs_vpop = translate_vector_operand(func_call.args[1], ind_var, mm, ctx)
         translate_vector_expr(func_call.args[0], ind_var, mm, ctx)
 
         opcode = op_map[name]
@@ -729,7 +729,9 @@ def create_fake_ast(
     tmp_arr_vars: dict[Symbol, Expr] = {
         Symbol(VECTOR_BRANCH_PREFIX + v.value): MemRead(None, v, WORD_SIZE, Value(None, ind_var)) for v in arr_writes
     }
-    tmp_var_apply: list[Expr] = [VarSet(None, v, Value(None, Symbol(VECTOR_BRANCH_PREFIX + v.value)), True) for v in writes]
+    tmp_var_apply: list[Expr] = [
+        VarSet(None, v, Value(None, Symbol(VECTOR_BRANCH_PREFIX + v.value)), True) for v in writes
+    ]
     tmp_arr_var_apply: list[Expr] = [
         MemWrite(None, v, WORD_SIZE, Value(None, ind_var), Value(None, Symbol(VECTOR_BRANCH_PREFIX + v.value)), True)
         for v in arr_writes
@@ -1002,7 +1004,7 @@ def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, label:
         instr_str = f"{instr.opcode.name}"
     else:
         assert instr.addr_mode is not None
-        
+
         addr_map = {
             AddressMode.IMM: "{}",
             AddressMode.ADDR: "MEM[{}]",
