@@ -1,0 +1,7 @@
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+bin/
+*.bin
+*.debug
+*.log
