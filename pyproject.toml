@@ -21,6 +21,11 @@ ruff = "^0.15.0"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.pytest.ini_options]
+enable_assertion_pass_hook = true
+addopts = "--doctest-modules"
+log_format = "%(levelname)-7s %(module)-10s %(message)s"
+
 [tool.ruff]
 line-length = 120
 lint.select = [

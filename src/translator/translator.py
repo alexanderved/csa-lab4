@@ -953,6 +953,8 @@ def write_binary(binary: BinaryIO, mm: MemoryMap, ctx: TranslatorContext):
     for instr in mm.instructions.values():
         write_binary_instruction(binary, instr, mm)
 
+    print(f"Binary size: {binary.tell()} B")
+
 
 def write_debug_header(debug: TextIO, mm: MemoryMap):
     write_debug_instruction(debug, 0, generate_call_start_instr(mm))
@@ -1080,6 +1082,7 @@ def translate(src_file: str, bin_file: str, debug_file: str):
             translate_expr(expr, mm, ctx)
         mm.generate_instruction(Instruction(Opcode.HALT))
 
+    print(f"Instructions generated: {len(mm.instructions)}")
     with open(bin_file, "wb") as binary, open(debug_file, "w") as debug:
         write_binary(binary, mm, ctx)
         write_debug(debug, mm, ctx)

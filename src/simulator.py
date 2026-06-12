@@ -26,8 +26,6 @@ from src.common import (
 )
 
 
-logger = logging.getLogger()
-
 START_ADDR = 0x0
 INT_ADDR = ADDRESS_INSTRUCTION_SIZE
 
@@ -150,7 +148,7 @@ def extract_instr(data: list[int]):
 
 
 def log(s: str):
-    logger.debug(s)
+    logging.debug(s)
 
 
 class Config:
@@ -1203,8 +1201,6 @@ def simulate(bin_path: str, config_path: str):
     dp = DataPath(memory, in_dev, out_devs)
     cu = ControlUnit(tg, in_dev, dp)
 
-    log("---------- Execution ----------")
-
     nb_instr = 0
     for _ in range(config.limit):
         tg.next_tick()
@@ -1220,12 +1216,15 @@ def simulate(bin_path: str, config_path: str):
 
         if cu.stage == Stage.HALT:
             break
+    else:
+        log("Limit exceeded!")
 
-    log("---------- Output ----------")
-    log(f"Instructions executed: {nb_instr}")
-    log(f"Ticks: {tg.tick}")
-    log(f'Output String: "{"".join(out_devs[1].queue)}"')
-    log(f"Output Array: {out_devs[2].queue}")
+    print("------------------------ Statistics ------------------------")
+    print(f"Instructions executed: {nb_instr}")
+    print(f"Ticks: {tg.tick}")
+    print("-------------------------- Output --------------------------")
+    print(f'String: "{"".join(out_devs[1].queue)}"')
+    print(f"Array: {out_devs[2].queue}")
 
 
 if __name__ == "__main__":

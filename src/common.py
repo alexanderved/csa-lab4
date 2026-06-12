@@ -193,7 +193,10 @@ def to_little_endian(value: int):
 
     le = value.to_bytes(byte_len, "little", signed=True)
     if len(le) < 4:
-        return le + bytes([0] * (4 - len(le)))
+        if le[-1] < (1 << 7):
+            return le + bytes([0] * (4 - len(le)))
+        else:
+            return le + bytes([0xFF] * (4 - len(le)))
     else:
         return le[0:4]
 
