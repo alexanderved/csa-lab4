@@ -1,1 +1,1 @@
-(print-string "Hello, world!")
+(print-string "Hello, world!\n")

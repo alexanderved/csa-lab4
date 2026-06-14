@@ -26,13 +26,7 @@ class Token:
         return bool(re.fullmatch(r"[+-]?[0-9]+", self.value))
 
     def is_symbol(self):
-        return not (
-            STRING_DELIM_TOKEN in self.value
-            or self.is_call_start()
-            or self.is_call_end()
-            or self.is_string_literal()
-            or self.is_number_literal()
-        )
+        return bool(re.fullmatch(r"[A-Za-z0-9!$%&*+-./<=>?@\[\]^_{}~]+", self.value)) and not self.is_number_literal()
 
     def is_value_expr(self):
         return self.is_string_literal() or self.is_number_literal() or self.is_symbol()

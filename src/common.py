@@ -218,4 +218,4 @@ def dec_to_bin(dec: int):
 
 
 def dec_to_hex(dec: int):
-    return hex(dec).replace("0x", "").upper()
+    return f"{dec:>02X}"

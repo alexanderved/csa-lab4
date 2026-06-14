@@ -11,6 +11,7 @@ from src.translator.utils import (
     ARITHMETIC_OPERATORS,
     BIT_OPERATORS,
     CMP_OPERATORS,
+    SPECIAL_CHARACTERS,
     Env,
     EnvFactory,
     ParseError,
@@ -37,8 +38,8 @@ class Value(Expr):
     def from_token(token: Token):
         if token.is_string_literal():
             str_value = token.value[1:-1]
-            str_value = str_value.replace("\\n", "\n")
-            str_value = str_value.replace("\\t", "\t")
+            for sc, escaped in SPECIAL_CHARACTERS.items():
+                str_value = str_value.replace(escaped, sc)
 
             return Value(token.line, str_value)
         elif token.is_number_literal():
@@ -309,6 +310,9 @@ def parse_defun(defun_line: int, token_iter: Iterator[Token]):
         except UnexpectedCallEndError:
             break
 
+    if len(body) == 0:
+        raise ParseError(defun_line, "Пустое тело функции")
+
     return FuncDef(defun_line, func_name, params, body)
 
 
@@ -343,6 +347,9 @@ def parse_let_block(let_line: int, token_iter: Iterator[Token]):
             body.append(parse_expr(token_iter))
         except UnexpectedCallEndError:
             break
+
+    if len(body) == 0:
+        raise ParseError(let_line, "Пустое тело let-блока")
 
     return LetBlock(let_line, variables, body)
 

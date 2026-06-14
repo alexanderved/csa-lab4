@@ -20,6 +20,13 @@ class UnexpectedCallEndError(ParseError):
         super().__init__(line, "Неожиданная закрывающая скобка")
 
 
+SPECIAL_CHARACTERS = {
+    "\0": "\\0",
+    "\n": "\\n",
+    "\t": "\\t",
+}
+
+
 ARITHMETIC_OPERATORS = {"+", "+c", "-", "*", "/", "%"}
 BIT_OPERATORS = {"<<", ">>", "&", "|", "^", "~"}
 CMP_OPERATORS = {"=", "/=", "<", "<=", ">", ">="}

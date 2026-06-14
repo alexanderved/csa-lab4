@@ -6,6 +6,7 @@ from typing import BinaryIO, TextIO
 from src.common import (
     ADDRESS_INSTRUCTION_SIZE,
     ADDRESSLESS_INSTRUCTIONS,
+    CONTROL_INSTRUCTIONS,
     VECTOR_SIZE,
     WORD_SIZE,
     AddressMode,
@@ -38,7 +39,7 @@ from src.translator.ast import (
     build_ast,
 )
 from src.translator.tokenizer import tokenize
-from src.translator.utils import ARITHMETIC_OPERATORS, BIT_OPERATORS, CMP_OPERATORS, Env, EnvFactory, ParseError
+from src.translator.utils import ARITHMETIC_OPERATORS, BIT_OPERATORS, CMP_OPERATORS, SPECIAL_CHARACTERS, Env, EnvFactory, ParseError
 
 
 class TranslatorContext:
@@ -289,7 +290,12 @@ def translate_operand(operand: Expr, mm: MemoryMap, ctx: TranslatorContext):
 
 
 def translate_alu_op(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorContext):
-    addr_mode, operand, needs_pop = translate_operand(func_call.args[1], mm, ctx)
+    is_binary = func_call.name.value != "~"
+
+    addr_mode, operand, needs_pop = None, None, False
+    if is_binary:
+        addr_mode, operand, needs_pop = translate_operand(func_call.args[1], mm, ctx)
+
     translate_expr(func_call.args[0], mm, ctx)
 
     alu_op_map = {
@@ -463,6 +469,7 @@ def translate_other_special_form(sf: SpecialForm, mm: MemoryMap, ctx: Translator
             mm.generate_instruction(Instruction(Opcode.AND, AddressMode.IMM, 0xFFFFFF00))
             mm.generate_instruction(Instruction(Opcode.OR, AddressMode.SP, WORD_SIZE))
             mm.generate_instruction(Instruction(Opcode.ST, AddressMode.SP_IND, 0))
+            mm.generate_instruction(Instruction(Opcode.AND, AddressMode.IMM, 0xFF))
 
             mm.generate_pops(2, ctx)
 
@@ -935,7 +942,7 @@ def write_binary_instruction(binary: BinaryIO, instr: Instruction, mm: MemoryMap
         if type(instr.operand) is int:
             bin_operand = to_little_endian(instr.operand)
         elif type(instr.operand) is Symbol:
-            if instr.operand in mm.label_addresses:
+            if instr.operand in mm.label_addresses and instr.opcode in CONTROL_INSTRUCTIONS:
                 addr = mm.label_addresses[instr.operand]
                 bin_operand = to_little_endian(addr)
             elif instr.operand in mm.global_vars_addresses:
@@ -961,8 +968,8 @@ def write_binary(binary: BinaryIO, mm: MemoryMap, ctx: TranslatorContext):
 
 
 def write_debug_header(debug: TextIO, mm: MemoryMap):
-    write_debug_instruction(debug, 0, generate_call_start_instr(mm))
-    write_debug_instruction(debug, ADDRESS_INSTRUCTION_SIZE, generate_call_interrupt_instr(mm))
+    write_debug_instruction(debug, 0, generate_call_start_instr(mm), mm)
+    write_debug_instruction(debug, ADDRESS_INSTRUCTION_SIZE, generate_call_interrupt_instr(mm), mm)
 
     if mm.interrupt_vector is None:
         hex_addr = f"{dec_to_hex(ADDRESS_INSTRUCTION_SIZE + 1):>08}"
@@ -971,9 +978,12 @@ def write_debug_header(debug: TextIO, mm: MemoryMap):
 
 def write_debug_string_literal(debug: TextIO, addr: int, str_lit: str):
     hex_addr = f"{dec_to_hex(addr):>08}"
-    str_lit_quoted = '"' + str_lit + '"'
 
-    debug.write(f"{hex_addr}:    {str_lit_quoted:<50} \n")
+    str_lit = str_lit + "\\0"
+    for sc, escaped in SPECIAL_CHARACTERS.items():
+        str_lit = str_lit.replace(sc, escaped)
+
+    debug.write(f"{hex_addr}:    {str_lit:<50} \n")
 
 
 def write_debug_allocated_memory(debug: TextIO, addr: int, size: int):
@@ -995,13 +1005,14 @@ def write_debug_global_var(debug: TextIO, addr: int, name: str, value: int):
     debug.write(f"{hex_addr}:    {value_str:<50} {name_str}\n")
 
 
-def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, label: str | None = None):
+def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, mm: MemoryMap, label: str | None = None):
     hex_addr = f"{dec_to_hex(addr):>08}"
     label_str = "" if label is None else f"@{label}"
 
     instr_str = ""
     if instr.opcode in ADDRESSLESS_INSTRUCTIONS:
-        instr_str = f"{instr.opcode.name}"
+        opcode_hex = dec_to_hex(instr.opcode.value << 2)
+        instr_str = f"{opcode_hex:<14}    {instr.opcode.name}"
     else:
         assert instr.addr_mode is not None
 
@@ -1012,12 +1023,23 @@ def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, label:
             AddressMode.SP_IND: "MEM[MEM[SP + {}]]",
         }
 
+        operand = 0
+        operand_hex = []
         if type(instr.operand) is int:
-            instr_str = f"{instr.opcode.name} {addr_map[instr.addr_mode].format(dec_to_hex(instr.operand))}"
+            operand = addr_map[instr.addr_mode].format(dec_to_hex(instr.operand))
+            operand_hex = hex_little_endian(to_little_endian(instr.operand))
         elif type(instr.operand) is Symbol:
-            instr_str = f"{instr.opcode.name} {addr_map[instr.addr_mode].format('@' + instr.operand.value)}"
+            operand = addr_map[instr.addr_mode].format('@' + instr.operand.value)
+            if instr.opcode in CONTROL_INSTRUCTIONS:
+                operand_hex = hex_little_endian(to_little_endian(mm.label_addresses[instr.operand]))
+            else:
+                operand_hex = hex_little_endian(to_little_endian(mm.global_vars_addresses[instr.operand]))
         else:
             raise ParseError(None, "Отсутствует операнд инструкции")
+        
+        opcode_hex = dec_to_hex((instr.opcode.value << 2) + instr.addr_mode.value)
+        operand_hex_str = " ".join(operand_hex)
+        instr_str = f"{opcode_hex} {operand_hex_str}    {instr.opcode.name} {operand}"
 
     debug.write(f"{hex_addr}:    {instr_str:<50} {label_str}\n")
 
@@ -1049,9 +1071,9 @@ def write_debug(debug: TextIO, mm: MemoryMap, ctx: TranslatorContext):
     addr_labels = {value: key for key, value in mm.label_addresses.items()}
     for addr, instr in mm.instructions.items():
         if addr in addr_labels:
-            write_debug_instruction(debug, addr, instr, addr_labels[addr].value)
+            write_debug_instruction(debug, addr, instr, mm, addr_labels[addr].value)
         else:
-            write_debug_instruction(debug, addr, instr)
+            write_debug_instruction(debug, addr, instr, mm)
 
 
 STDLIB = "stdlib.lisp"

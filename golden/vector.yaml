@@ -109,8 +109,8 @@ binary: 4C 81 02 00 00 4C 66 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
   00 48 4C 1E 05 00 00 0A 08 00 00 00 48 48 48 48 48 04
 
 debug: |
-  00000000:    JMP 281                                            
-  00000005:    JMP 66                                             
+  00000000:    4C 81 02 00 00    JMP 281                          
+  00000005:    4C 66 00 00 00    JMP 66                           
   0000000A:    00  ...  00                                        
   00000046:    05 00 00 00                                        @__arr-len
   0000004A:    0A 00 00 00                                        @__A
@@ -120,308 +120,308 @@ debug: |
   0000005A:    00 00 00 00                                        @__is-A-finished
   0000005E:    00 00 00 00                                        @__i-B
   00000062:    00 00 00 00                                        @__is-B-finished
-  00000066:    LD MEM[@__is-A-finished]                           @read-arrays
-  0000006B:    CMP 0                                              
-  00000070:    JEQ 173                                            
-  00000075:    LD MEM[@__is-B-finished]                           
-  0000007A:    CMP 0                                              
-  0000007F:    JEQ 8E                                             
-  00000084:    LD 0                                               
-  00000089:    JMP 16E                                            
-  0000008E:    LD MEM[@__i-B]                                     
-  00000093:    CMP MEM[@__arr-len]                                
-  00000098:    JLT A7                                             
-  0000009D:    LD 0                                               
-  000000A2:    JMP AC                                             
-  000000A7:    LD 1                                               
-  000000AC:    CMP 0                                              
-  000000B1:    JEQ 164                                            
-  000000B6:    IN 0                                               
-  000000BB:    PUSH                                               
-  000000BC:    LD MEM[@__i-B]                                     
-  000000C1:    MUL 4                                              
-  000000C6:    ADD MEM[@__B]                                      
-  000000CB:    PUSH                                               
-  000000CC:    LD MEM[SP + 4]                                     
-  000000D1:    ST MEM[MEM[SP + 0]]                                
-  000000D6:    POP                                                
-  000000D7:    LD MEM[@__i-B]                                     
-  000000DC:    ADD 1                                              
-  000000E1:    ST MEM[@__i-B]                                     
-  000000E6:    LD MEM[SP + 0]                                     
-  000000EB:    CMP 0                                              
-  000000F0:    JEQ FF                                             
-  000000F5:    LD 0                                               
-  000000FA:    JMP 104                                            
-  000000FF:    LD 1                                               
-  00000104:    CMP 0                                              
-  00000109:    JEQ 11D                                            
-  0000010E:    LD 1                                               
-  00000113:    ST MEM[@__is-B-finished]                           
-  00000118:    JMP 122                                            
-  0000011D:    LD 0                                               
-  00000122:    LD MEM[@__i-B]                                     
-  00000127:    CMP MEM[@__arr-len]                                
-  0000012C:    JEQ 13B                                            
-  00000131:    LD 0                                               
-  00000136:    JMP 140                                            
-  0000013B:    LD 1                                               
-  00000140:    CMP 0                                              
-  00000145:    JEQ 159                                            
-  0000014A:    LD 1                                               
-  0000014F:    ST MEM[@__is-B-finished]                           
-  00000154:    JMP 15E                                            
-  00000159:    LD 0                                               
-  0000015E:    POP                                                
-  0000015F:    JMP 16E                                            
-  00000164:    LD 1                                               
-  00000169:    ST MEM[@__is-B-finished]                           
-  0000016E:    JMP 217                                            
-  00000173:    LD MEM[@__i-A]                                     
-  00000178:    CMP MEM[@__arr-len]                                
-  0000017D:    JLT 18C                                            
-  00000182:    LD 0                                               
-  00000187:    JMP 191                                            
-  0000018C:    LD 1                                               
-  00000191:    CMP 0                                              
-  00000196:    JEQ 20D                                            
-  0000019B:    IN 0                                               
-  000001A0:    PUSH                                               
-  000001A1:    LD MEM[@__i-A]                                     
-  000001A6:    MUL 4                                              
-  000001AB:    ADD MEM[@__A]                                      
-  000001B0:    PUSH                                               
-  000001B1:    LD MEM[SP + 4]                                     
-  000001B6:    ST MEM[MEM[SP + 0]]                                
-  000001BB:    POP                                                
-  000001BC:    LD MEM[@__i-A]                                     
-  000001C1:    ADD 1                                              
-  000001C6:    ST MEM[@__i-A]                                     
-  000001CB:    LD MEM[SP + 0]                                     
-  000001D0:    CMP 0                                              
-  000001D5:    JEQ 1E4                                            
-  000001DA:    LD 0                                               
-  000001DF:    JMP 1E9                                            
-  000001E4:    LD 1                                               
-  000001E9:    CMP 0                                              
-  000001EE:    JEQ 202                                            
-  000001F3:    LD 1                                               
-  000001F8:    ST MEM[@__is-A-finished]                           
-  000001FD:    JMP 207                                            
-  00000202:    LD 0                                               
-  00000207:    POP                                                
-  00000208:    JMP 217                                            
-  0000020D:    LD 1                                               
-  00000212:    ST MEM[@__is-A-finished]                           
-  00000217:    IRET                                               
-  00000218:    LD 0                                               @print-string
-  0000021D:    PUSH                                               
-  0000021E:    LD MEM[SP + 8]                                     
-  00000223:    PUSH                                               
-  00000224:    LD MEM[SP + 4]                                     @print-string-loop
-  00000229:    ADD MEM[SP + 0]                                    
-  0000022E:    PUSH                                               
-  0000022F:    LD MEM[MEM[SP + 0]]                                
-  00000234:    AND FF                                             
-  00000239:    POP                                                
-  0000023A:    PUSH                                               
-  0000023B:    LD MEM[SP + 0]                                     
-  00000240:    CMP 0                                              
-  00000245:    JEQ 278                                            
-  0000024A:    LD MEM[SP + 0]                                     
-  0000024F:    OUT 1                                              
-  00000254:    LD MEM[SP + 8]                                     
-  00000259:    ADD 1                                              
-  0000025E:    ST MEM[SP + 8]                                     
-  00000263:    LD MEM[SP + 4]                                     
-  00000268:    ST MEM[SP + 4]                                     
-  0000026D:    POP                                                
-  0000026E:    JMP @print-string-loop                             
-  00000273:    JMP 27D                                            
-  00000278:    LD MEM[SP + 8]                                     
-  0000027D:    POP                                                
-  0000027E:    POP                                                
-  0000027F:    POP                                                
-  00000280:    RET                                                
-  00000281:    LD MEM[@__is-A-finished]                           @wait-arrays
-  00000286:    CMP 0                                              
-  0000028B:    JEQ 2B3                                            
-  00000290:    LD MEM[@__is-B-finished]                           
-  00000295:    CMP 0                                              
-  0000029A:    JEQ 2A9                                            
-  0000029F:    LD 0                                               
-  000002A4:    JMP 2AE                                            
-  000002A9:    JMP @wait-arrays                                   
-  000002AE:    JMP 2B8                                            
-  000002B3:    JMP @wait-arrays                                   
-  000002B8:    LD 0                                               
-  000002BD:    PUSH                                               
-  000002BE:    LD MEM[@__arr-len]                                 @exec
-  000002C3:    SUB MEM[SP + 0]                                    
-  000002C8:    DIV 4                                              
-  000002CD:    MUL 4                                              
-  000002D2:    ADD MEM[SP + 0]                                    
-  000002D7:    PUSH                                               
-  000002D8:    LD MEM[SP + 0]                                     
-  000002DD:    CMP MEM[SP + 4]                                    
-  000002E2:    JLE 3BA                                            
-  000002E7:    LD MEM[SP + 4]                                     
-  000002EC:    MUL 4                                              
-  000002F1:    ADD MEM[@__B]                                      
-  000002F6:    PUSH                                               
-  000002F7:    VLD MEM[MEM[SP + 0]]                               
-  000002FC:    POP                                                
-  000002FD:    VPUSH                                              
-  000002FE:    LD MEM[SP + 14]                                    
-  00000303:    MUL 4                                              
-  00000308:    ADD MEM[@__A]                                      
-  0000030D:    PUSH                                               
-  0000030E:    VLD MEM[MEM[SP + 0]]                               
-  00000313:    POP                                                
-  00000314:    VPUSH                                              
-  00000315:    VLD MEM[SP + 0]                                    
-  0000031A:    VMGT MEM[SP + 10]                                  
-  0000031F:    LD MEM[SP + 24]                                    
-  00000324:    MUL 4                                              
-  00000329:    ADD MEM[@__C]                                      
-  0000032E:    PUSH                                               
-  0000032F:    VLD MEM[MEM[SP + 0]]                               
-  00000334:    POP                                                
-  00000335:    VPUSH                                              
-  00000336:    VLD MEM[SP + 10]                                   
-  0000033B:    VSUB MEM[SP + 20]                                  
-  00000340:    VST MEM[SP + 0]                                    
-  00000345:    LD MEM[SP + 34]                                    
-  0000034A:    MUL 4                                              
-  0000034F:    ADD MEM[@__C]                                      
-  00000354:    PUSH                                               
-  00000355:    VLD MEM[SP + 4]                                    
-  0000035A:    VMST MEM[MEM[SP + 0]]                              
-  0000035F:    POP                                                
-  00000360:    VPOP                                               
-  00000361:    VMNOT                                              
-  00000362:    LD MEM[SP + 24]                                    
-  00000367:    MUL 4                                              
-  0000036C:    ADD MEM[@__C]                                      
-  00000371:    PUSH                                               
-  00000372:    VLD MEM[MEM[SP + 0]]                               
-  00000377:    POP                                                
-  00000378:    VPUSH                                              
-  00000379:    VLD MEM[SP + 20]                                   
-  0000037E:    VSUB MEM[SP + 10]                                  
-  00000383:    VST MEM[SP + 0]                                    
-  00000388:    LD MEM[SP + 34]                                    
-  0000038D:    MUL 4                                              
-  00000392:    ADD MEM[@__C]                                      
-  00000397:    PUSH                                               
-  00000398:    VLD MEM[SP + 4]                                    
-  0000039D:    VMST MEM[MEM[SP + 0]]                              
-  000003A2:    POP                                                
-  000003A3:    VPOP                                               
-  000003A4:    VPOP                                               
-  000003A5:    VPOP                                               
-  000003A6:    LD MEM[SP + 4]                                     
-  000003AB:    ADD 4                                              
-  000003B0:    ST MEM[SP + 4]                                     
-  000003B5:    JMP 2D8                                            
-  000003BA:    POP                                                
-  000003BB:    LD MEM[@__arr-len]                                 
-  000003C0:    CMP MEM[SP + 0]                                    
-  000003C5:    JLE 47D                                            
-  000003CA:    LD MEM[SP + 0]                                     
-  000003CF:    MUL 4                                              
-  000003D4:    ADD MEM[@__B]                                      
-  000003D9:    PUSH                                               
-  000003DA:    LD MEM[MEM[SP + 0]]                                
-  000003DF:    POP                                                
-  000003E0:    PUSH                                               
-  000003E1:    LD MEM[SP + 4]                                     
-  000003E6:    MUL 4                                              
-  000003EB:    ADD MEM[@__A]                                      
-  000003F0:    PUSH                                               
-  000003F1:    LD MEM[MEM[SP + 0]]                                
-  000003F6:    POP                                                
-  000003F7:    PUSH                                               
-  000003F8:    LD MEM[SP + 0]                                     
-  000003FD:    CMP MEM[SP + 4]                                    
-  00000402:    JGT 411                                            
-  00000407:    LD 0                                               
-  0000040C:    JMP 416                                            
-  00000411:    LD 1                                               
-  00000416:    CMP 0                                              
-  0000041B:    JEQ 445                                            
-  00000420:    LD MEM[SP + 8]                                     
-  00000425:    MUL 4                                              
-  0000042A:    ADD MEM[@__C]                                      
-  0000042F:    PUSH                                               
-  00000430:    LD MEM[SP + 4]                                     
-  00000435:    SUB MEM[SP + 8]                                    
-  0000043A:    ST MEM[MEM[SP + 0]]                                
-  0000043F:    POP                                                
-  00000440:    JMP 465                                            
-  00000445:    LD MEM[SP + 8]                                     
-  0000044A:    MUL 4                                              
-  0000044F:    ADD MEM[@__C]                                      
-  00000454:    PUSH                                               
-  00000455:    LD MEM[SP + 8]                                     
-  0000045A:    SUB MEM[SP + 4]                                    
-  0000045F:    ST MEM[MEM[SP + 0]]                                
-  00000464:    POP                                                
-  00000465:    LD MEM[SP + 8]                                     
-  0000046A:    ADD 1                                              
-  0000046F:    ST MEM[SP + 8]                                     
-  00000474:    POP                                                
-  00000475:    POP                                                
-  00000476:    JMP 3BB                                            
-  0000047B:    POP                                                
-  0000047C:    POP                                                
-  0000047D:    LD 0                                               
-  00000482:    POP                                                
-  00000483:    LD MEM[@__arr-len]                                 
-  00000488:    PUSH                                               
-  00000489:    LD MEM[@__C]                                       
-  0000048E:    PUSH                                               
-  0000048F:    LD 0                                               @print-array
-  00000494:    PUSH                                               
-  00000495:    LD MEM[SP + 8]                                     
-  0000049A:    PUSH                                               
-  0000049B:    LD MEM[SP + 8]                                     
-  000004A0:    PUSH                                               
-  000004A1:    LD MEM[SP + 8]                                     @print-array-loop
-  000004A6:    CMP MEM[SP + 4]                                    
-  000004AB:    JLT 4BA                                            
-  000004B0:    LD 0                                               
-  000004B5:    JMP 4BF                                            
-  000004BA:    LD 1                                               
-  000004BF:    CMP 0                                              
-  000004C4:    JEQ 519                                            
-  000004C9:    LD MEM[SP + 8]                                     
-  000004CE:    MUL 4                                              
-  000004D3:    ADD MEM[SP + 0]                                    
-  000004D8:    PUSH                                               
-  000004D9:    LD MEM[MEM[SP + 0]]                                
-  000004DE:    POP                                                
-  000004DF:    PUSH                                               
-  000004E0:    LD MEM[SP + 0]                                     
-  000004E5:    OUT 2                                              
-  000004EA:    LD MEM[SP + C]                                     
-  000004EF:    ADD 1                                              
-  000004F4:    ST MEM[SP + C]                                     
-  000004F9:    LD MEM[SP + 8]                                     
-  000004FE:    ST MEM[SP + 8]                                     
-  00000503:    LD MEM[SP + 4]                                     
-  00000508:    ST MEM[SP + 4]                                     
-  0000050D:    POP                                                
-  0000050E:    JMP @print-array-loop                              
-  00000513:    POP                                                
-  00000514:    JMP 51E                                            
-  00000519:    LD MEM[SP + 8]                                     
-  0000051E:    POP                                                
-  0000051F:    POP                                                
-  00000520:    POP                                                
-  00000521:    POP                                                
-  00000522:    POP                                                
-  00000523:    HALT                                               
+  00000066:    09 5A 00 00 00    LD MEM[@__is-A-finished]         @read-arrays
+  0000006B:    1C 00 00 00 00    CMP 00                           
+  00000070:    50 73 01 00 00    JEQ 173                          
+  00000075:    09 62 00 00 00    LD MEM[@__is-B-finished]         
+  0000007A:    1C 00 00 00 00    CMP 00                           
+  0000007F:    50 8E 00 00 00    JEQ 8E                           
+  00000084:    08 00 00 00 00    LD 00                            
+  00000089:    4C 6E 01 00 00    JMP 16E                          
+  0000008E:    09 5E 00 00 00    LD MEM[@__i-B]                   
+  00000093:    1D 46 00 00 00    CMP MEM[@__arr-len]              
+  00000098:    58 A7 00 00 00    JLT A7                           
+  0000009D:    08 00 00 00 00    LD 00                            
+  000000A2:    4C AC 00 00 00    JMP AC                           
+  000000A7:    08 01 00 00 00    LD 01                            
+  000000AC:    1C 00 00 00 00    CMP 00                           
+  000000B1:    50 64 01 00 00    JEQ 164                          
+  000000B6:    74 00 00 00 00    IN 00                            
+  000000BB:    44                PUSH                             
+  000000BC:    09 5E 00 00 00    LD MEM[@__i-B]                   
+  000000C1:    20 04 00 00 00    MUL 04                           
+  000000C6:    11 4E 00 00 00    ADD MEM[@__B]                    
+  000000CB:    44                PUSH                             
+  000000CC:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  000000D1:    0F 00 00 00 00    ST MEM[MEM[SP + 00]]             
+  000000D6:    48                POP                              
+  000000D7:    09 5E 00 00 00    LD MEM[@__i-B]                   
+  000000DC:    10 01 00 00 00    ADD 01                           
+  000000E1:    0D 5E 00 00 00    ST MEM[@__i-B]                   
+  000000E6:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  000000EB:    1C 00 00 00 00    CMP 00                           
+  000000F0:    50 FF 00 00 00    JEQ FF                           
+  000000F5:    08 00 00 00 00    LD 00                            
+  000000FA:    4C 04 01 00 00    JMP 104                          
+  000000FF:    08 01 00 00 00    LD 01                            
+  00000104:    1C 00 00 00 00    CMP 00                           
+  00000109:    50 1D 01 00 00    JEQ 11D                          
+  0000010E:    08 01 00 00 00    LD 01                            
+  00000113:    0D 62 00 00 00    ST MEM[@__is-B-finished]         
+  00000118:    4C 22 01 00 00    JMP 122                          
+  0000011D:    08 00 00 00 00    LD 00                            
+  00000122:    09 5E 00 00 00    LD MEM[@__i-B]                   
+  00000127:    1D 46 00 00 00    CMP MEM[@__arr-len]              
+  0000012C:    50 3B 01 00 00    JEQ 13B                          
+  00000131:    08 00 00 00 00    LD 00                            
+  00000136:    4C 40 01 00 00    JMP 140                          
+  0000013B:    08 01 00 00 00    LD 01                            
+  00000140:    1C 00 00 00 00    CMP 00                           
+  00000145:    50 59 01 00 00    JEQ 159                          
+  0000014A:    08 01 00 00 00    LD 01                            
+  0000014F:    0D 62 00 00 00    ST MEM[@__is-B-finished]         
+  00000154:    4C 5E 01 00 00    JMP 15E                          
+  00000159:    08 00 00 00 00    LD 00                            
+  0000015E:    48                POP                              
+  0000015F:    4C 6E 01 00 00    JMP 16E                          
+  00000164:    08 01 00 00 00    LD 01                            
+  00000169:    0D 62 00 00 00    ST MEM[@__is-B-finished]         
+  0000016E:    4C 17 02 00 00    JMP 217                          
+  00000173:    09 56 00 00 00    LD MEM[@__i-A]                   
+  00000178:    1D 46 00 00 00    CMP MEM[@__arr-len]              
+  0000017D:    58 8C 01 00 00    JLT 18C                          
+  00000182:    08 00 00 00 00    LD 00                            
+  00000187:    4C 91 01 00 00    JMP 191                          
+  0000018C:    08 01 00 00 00    LD 01                            
+  00000191:    1C 00 00 00 00    CMP 00                           
+  00000196:    50 0D 02 00 00    JEQ 20D                          
+  0000019B:    74 00 00 00 00    IN 00                            
+  000001A0:    44                PUSH                             
+  000001A1:    09 56 00 00 00    LD MEM[@__i-A]                   
+  000001A6:    20 04 00 00 00    MUL 04                           
+  000001AB:    11 4A 00 00 00    ADD MEM[@__A]                    
+  000001B0:    44                PUSH                             
+  000001B1:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  000001B6:    0F 00 00 00 00    ST MEM[MEM[SP + 00]]             
+  000001BB:    48                POP                              
+  000001BC:    09 56 00 00 00    LD MEM[@__i-A]                   
+  000001C1:    10 01 00 00 00    ADD 01                           
+  000001C6:    0D 56 00 00 00    ST MEM[@__i-A]                   
+  000001CB:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  000001D0:    1C 00 00 00 00    CMP 00                           
+  000001D5:    50 E4 01 00 00    JEQ 1E4                          
+  000001DA:    08 00 00 00 00    LD 00                            
+  000001DF:    4C E9 01 00 00    JMP 1E9                          
+  000001E4:    08 01 00 00 00    LD 01                            
+  000001E9:    1C 00 00 00 00    CMP 00                           
+  000001EE:    50 02 02 00 00    JEQ 202                          
+  000001F3:    08 01 00 00 00    LD 01                            
+  000001F8:    0D 5A 00 00 00    ST MEM[@__is-A-finished]         
+  000001FD:    4C 07 02 00 00    JMP 207                          
+  00000202:    08 00 00 00 00    LD 00                            
+  00000207:    48                POP                              
+  00000208:    4C 17 02 00 00    JMP 217                          
+  0000020D:    08 01 00 00 00    LD 01                            
+  00000212:    0D 5A 00 00 00    ST MEM[@__is-A-finished]         
+  00000217:    70                IRET                             
+  00000218:    08 00 00 00 00    LD 00                            @print-string
+  0000021D:    44                PUSH                             
+  0000021E:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  00000223:    44                PUSH                             
+  00000224:    0A 04 00 00 00    LD MEM[SP + 04]                  @print-string-loop
+  00000229:    12 00 00 00 00    ADD MEM[SP + 00]                 
+  0000022E:    44                PUSH                             
+  0000022F:    0B 00 00 00 00    LD MEM[MEM[SP + 00]]             
+  00000234:    34 FF 00 00 00    AND FF                           
+  00000239:    48                POP                              
+  0000023A:    44                PUSH                             
+  0000023B:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  00000240:    1C 00 00 00 00    CMP 00                           
+  00000245:    50 78 02 00 00    JEQ 278                          
+  0000024A:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  0000024F:    78 01 00 00 00    OUT 01                           
+  00000254:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  00000259:    10 01 00 00 00    ADD 01                           
+  0000025E:    0E 08 00 00 00    ST MEM[SP + 08]                  
+  00000263:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  00000268:    0E 04 00 00 00    ST MEM[SP + 04]                  
+  0000026D:    48                POP                              
+  0000026E:    4C 24 02 00 00    JMP @print-string-loop           
+  00000273:    4C 7D 02 00 00    JMP 27D                          
+  00000278:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  0000027D:    48                POP                              
+  0000027E:    48                POP                              
+  0000027F:    48                POP                              
+  00000280:    6C                RET                              
+  00000281:    09 5A 00 00 00    LD MEM[@__is-A-finished]         @wait-arrays
+  00000286:    1C 00 00 00 00    CMP 00                           
+  0000028B:    50 B3 02 00 00    JEQ 2B3                          
+  00000290:    09 62 00 00 00    LD MEM[@__is-B-finished]         
+  00000295:    1C 00 00 00 00    CMP 00                           
+  0000029A:    50 A9 02 00 00    JEQ 2A9                          
+  0000029F:    08 00 00 00 00    LD 00                            
+  000002A4:    4C AE 02 00 00    JMP 2AE                          
+  000002A9:    4C 81 02 00 00    JMP @wait-arrays                 
+  000002AE:    4C B8 02 00 00    JMP 2B8                          
+  000002B3:    4C 81 02 00 00    JMP @wait-arrays                 
+  000002B8:    08 00 00 00 00    LD 00                            
+  000002BD:    44                PUSH                             
+  000002BE:    09 46 00 00 00    LD MEM[@__arr-len]               @exec
+  000002C3:    1A 00 00 00 00    SUB MEM[SP + 00]                 
+  000002C8:    24 04 00 00 00    DIV 04                           
+  000002CD:    20 04 00 00 00    MUL 04                           
+  000002D2:    12 00 00 00 00    ADD MEM[SP + 00]                 
+  000002D7:    44                PUSH                             
+  000002D8:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  000002DD:    1E 04 00 00 00    CMP MEM[SP + 04]                 
+  000002E2:    5C BA 03 00 00    JLE 3BA                          
+  000002E7:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  000002EC:    20 04 00 00 00    MUL 04                           
+  000002F1:    11 4E 00 00 00    ADD MEM[@__B]                    
+  000002F6:    44                PUSH                             
+  000002F7:    7F 00 00 00 00    VLD MEM[MEM[SP + 00]]            
+  000002FC:    48                POP                              
+  000002FD:    94                VPUSH                            
+  000002FE:    0A 14 00 00 00    LD MEM[SP + 14]                  
+  00000303:    20 04 00 00 00    MUL 04                           
+  00000308:    11 4A 00 00 00    ADD MEM[@__A]                    
+  0000030D:    44                PUSH                             
+  0000030E:    7F 00 00 00 00    VLD MEM[MEM[SP + 00]]            
+  00000313:    48                POP                              
+  00000314:    94                VPUSH                            
+  00000315:    7E 00 00 00 00    VLD MEM[SP + 00]                 
+  0000031A:    B2 10 00 00 00    VMGT MEM[SP + 10]                
+  0000031F:    0A 24 00 00 00    LD MEM[SP + 24]                  
+  00000324:    20 04 00 00 00    MUL 04                           
+  00000329:    11 52 00 00 00    ADD MEM[@__C]                    
+  0000032E:    44                PUSH                             
+  0000032F:    7F 00 00 00 00    VLD MEM[MEM[SP + 00]]            
+  00000334:    48                POP                              
+  00000335:    94                VPUSH                            
+  00000336:    7E 10 00 00 00    VLD MEM[SP + 10]                 
+  0000033B:    8A 20 00 00 00    VSUB MEM[SP + 20]                
+  00000340:    82 00 00 00 00    VST MEM[SP + 00]                 
+  00000345:    0A 34 00 00 00    LD MEM[SP + 34]                  
+  0000034A:    20 04 00 00 00    MUL 04                           
+  0000034F:    11 52 00 00 00    ADD MEM[@__C]                    
+  00000354:    44                PUSH                             
+  00000355:    7E 04 00 00 00    VLD MEM[SP + 04]                 
+  0000035A:    BF 00 00 00 00    VMST MEM[MEM[SP + 00]]           
+  0000035F:    48                POP                              
+  00000360:    98                VPOP                             
+  00000361:    9C                VMNOT                            
+  00000362:    0A 24 00 00 00    LD MEM[SP + 24]                  
+  00000367:    20 04 00 00 00    MUL 04                           
+  0000036C:    11 52 00 00 00    ADD MEM[@__C]                    
+  00000371:    44                PUSH                             
+  00000372:    7F 00 00 00 00    VLD MEM[MEM[SP + 00]]            
+  00000377:    48                POP                              
+  00000378:    94                VPUSH                            
+  00000379:    7E 20 00 00 00    VLD MEM[SP + 20]                 
+  0000037E:    8A 10 00 00 00    VSUB MEM[SP + 10]                
+  00000383:    82 00 00 00 00    VST MEM[SP + 00]                 
+  00000388:    0A 34 00 00 00    LD MEM[SP + 34]                  
+  0000038D:    20 04 00 00 00    MUL 04                           
+  00000392:    11 52 00 00 00    ADD MEM[@__C]                    
+  00000397:    44                PUSH                             
+  00000398:    7E 04 00 00 00    VLD MEM[SP + 04]                 
+  0000039D:    BF 00 00 00 00    VMST MEM[MEM[SP + 00]]           
+  000003A2:    48                POP                              
+  000003A3:    98                VPOP                             
+  000003A4:    98                VPOP                             
+  000003A5:    98                VPOP                             
+  000003A6:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  000003AB:    10 04 00 00 00    ADD 04                           
+  000003B0:    0E 04 00 00 00    ST MEM[SP + 04]                  
+  000003B5:    4C D8 02 00 00    JMP 2D8                          
+  000003BA:    48                POP                              
+  000003BB:    09 46 00 00 00    LD MEM[@__arr-len]               
+  000003C0:    1E 00 00 00 00    CMP MEM[SP + 00]                 
+  000003C5:    5C 7D 04 00 00    JLE 47D                          
+  000003CA:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  000003CF:    20 04 00 00 00    MUL 04                           
+  000003D4:    11 4E 00 00 00    ADD MEM[@__B]                    
+  000003D9:    44                PUSH                             
+  000003DA:    0B 00 00 00 00    LD MEM[MEM[SP + 00]]             
+  000003DF:    48                POP                              
+  000003E0:    44                PUSH                             
+  000003E1:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  000003E6:    20 04 00 00 00    MUL 04                           
+  000003EB:    11 4A 00 00 00    ADD MEM[@__A]                    
+  000003F0:    44                PUSH                             
+  000003F1:    0B 00 00 00 00    LD MEM[MEM[SP + 00]]             
+  000003F6:    48                POP                              
+  000003F7:    44                PUSH                             
+  000003F8:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  000003FD:    1E 04 00 00 00    CMP MEM[SP + 04]                 
+  00000402:    60 11 04 00 00    JGT 411                          
+  00000407:    08 00 00 00 00    LD 00                            
+  0000040C:    4C 16 04 00 00    JMP 416                          
+  00000411:    08 01 00 00 00    LD 01                            
+  00000416:    1C 00 00 00 00    CMP 00                           
+  0000041B:    50 45 04 00 00    JEQ 445                          
+  00000420:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  00000425:    20 04 00 00 00    MUL 04                           
+  0000042A:    11 52 00 00 00    ADD MEM[@__C]                    
+  0000042F:    44                PUSH                             
+  00000430:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  00000435:    1A 08 00 00 00    SUB MEM[SP + 08]                 
+  0000043A:    0F 00 00 00 00    ST MEM[MEM[SP + 00]]             
+  0000043F:    48                POP                              
+  00000440:    4C 65 04 00 00    JMP 465                          
+  00000445:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  0000044A:    20 04 00 00 00    MUL 04                           
+  0000044F:    11 52 00 00 00    ADD MEM[@__C]                    
+  00000454:    44                PUSH                             
+  00000455:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  0000045A:    1A 04 00 00 00    SUB MEM[SP + 04]                 
+  0000045F:    0F 00 00 00 00    ST MEM[MEM[SP + 00]]             
+  00000464:    48                POP                              
+  00000465:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  0000046A:    10 01 00 00 00    ADD 01                           
+  0000046F:    0E 08 00 00 00    ST MEM[SP + 08]                  
+  00000474:    48                POP                              
+  00000475:    48                POP                              
+  00000476:    4C BB 03 00 00    JMP 3BB                          
+  0000047B:    48                POP                              
+  0000047C:    48                POP                              
+  0000047D:    08 00 00 00 00    LD 00                            
+  00000482:    48                POP                              
+  00000483:    09 46 00 00 00    LD MEM[@__arr-len]               
+  00000488:    44                PUSH                             
+  00000489:    09 52 00 00 00    LD MEM[@__C]                     
+  0000048E:    44                PUSH                             
+  0000048F:    08 00 00 00 00    LD 00                            @print-array
+  00000494:    44                PUSH                             
+  00000495:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  0000049A:    44                PUSH                             
+  0000049B:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  000004A0:    44                PUSH                             
+  000004A1:    0A 08 00 00 00    LD MEM[SP + 08]                  @print-array-loop
+  000004A6:    1E 04 00 00 00    CMP MEM[SP + 04]                 
+  000004AB:    58 BA 04 00 00    JLT 4BA                          
+  000004B0:    08 00 00 00 00    LD 00                            
+  000004B5:    4C BF 04 00 00    JMP 4BF                          
+  000004BA:    08 01 00 00 00    LD 01                            
+  000004BF:    1C 00 00 00 00    CMP 00                           
+  000004C4:    50 19 05 00 00    JEQ 519                          
+  000004C9:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  000004CE:    20 04 00 00 00    MUL 04                           
+  000004D3:    12 00 00 00 00    ADD MEM[SP + 00]                 
+  000004D8:    44                PUSH                             
+  000004D9:    0B 00 00 00 00    LD MEM[MEM[SP + 00]]             
+  000004DE:    48                POP                              
+  000004DF:    44                PUSH                             
+  000004E0:    0A 00 00 00 00    LD MEM[SP + 00]                  
+  000004E5:    78 02 00 00 00    OUT 02                           
+  000004EA:    0A 0C 00 00 00    LD MEM[SP + 0C]                  
+  000004EF:    10 01 00 00 00    ADD 01                           
+  000004F4:    0E 0C 00 00 00    ST MEM[SP + 0C]                  
+  000004F9:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  000004FE:    0E 08 00 00 00    ST MEM[SP + 08]                  
+  00000503:    0A 04 00 00 00    LD MEM[SP + 04]                  
+  00000508:    0E 04 00 00 00    ST MEM[SP + 04]                  
+  0000050D:    48                POP                              
+  0000050E:    4C A1 04 00 00    JMP @print-array-loop            
+  00000513:    48                POP                              
+  00000514:    4C 1E 05 00 00    JMP 51E                          
+  00000519:    0A 08 00 00 00    LD MEM[SP + 08]                  
+  0000051E:    48                POP                              
+  0000051F:    48                POP                              
+  00000520:    48                POP                              
+  00000521:    48                POP                              
+  00000522:    48                POP                              
+  00000523:    04                HALT                             
 
 stdout: |
   Instructions generated: 302
