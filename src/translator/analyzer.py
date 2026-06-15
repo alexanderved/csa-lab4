@@ -286,6 +286,7 @@ def is_vectorizable_special_form(expr: SpecialForm, vec_ctx: VectorContext, ctx:
             for body_expr in expr.body:
                 res = res and is_vectorizable_expr(body_expr, vec_ctx, ctx)
             ctx.pop_env()
+
         case IfExpr() if not vec_ctx.inside_if:
             vec_ctx.enter_if()
 
@@ -294,6 +295,7 @@ def is_vectorizable_special_form(expr: SpecialForm, vec_ctx: VectorContext, ctx:
             res = res and is_vectorizable_expr(expr.else_branch, vec_ctx, ctx)
 
             vec_ctx.leave_if()
+
         case _:
             res = False
 

@@ -120,6 +120,14 @@ class TranslatorContext:
         else:
             self.env = self.env.prev
 
+    def find_function(self, name: Symbol):
+        if name in self.functions:
+            return self.functions[name]
+        elif name in self.inline_functions:
+            return self.inline_functions[name]
+        else:
+            return None
+
 
 BIN_HEADER_SIZE = ADDRESS_INSTRUCTION_SIZE * 2
 
@@ -300,6 +308,9 @@ def translate_operand(operand: Expr, mm: MemoryMap, ctx: TranslatorContext):
 def translate_alu_op(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorContext):
     is_binary = func_call.name.value != "~"
 
+    if (is_binary and len(func_call.args) != 2) or (not is_binary and len(func_call.args) != 1):
+        raise ParseError(func_call.line, "Неверное число аргументов")
+
     addr_mode, operand, needs_pop = None, None, False
     if is_binary:
         addr_mode, operand, needs_pop = translate_operand(func_call.args[1], mm, ctx)
@@ -328,6 +339,9 @@ def translate_alu_op(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorContext)
 
 
 def translate_cmp_op(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorContext):
+    if len(func_call.args) != 2:
+        raise ParseError(func_call.line, "Неверное число аргументов")
+
     addr_mode, operand, needs_pop = translate_operand(func_call.args[1], mm, ctx)
     translate_expr(func_call.args[0], mm, ctx)
 
@@ -356,6 +370,9 @@ def translate_cmp_op(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorContext)
 
 
 def translate_user_def_func(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorContext):
+    if len(func_call.args) != len(ctx.find_function(func_call.name).params):
+        raise ParseError(func_call.line, "Неверное число аргументов")
+
     if FuncCallFlags.TAIL in func_call.flags:
         func_env = ctx.env.find_func_env()
         assert func_env.func == func_call.name
@@ -398,8 +415,10 @@ def translate_func_call(func_call: FuncCall, mm: MemoryMap, ctx: TranslatorConte
         translate_cmp_op(func_call, mm, ctx)
     elif func_call.name in ctx.interrupts and FuncDefFlags.INTERRUPT in ctx.interrupts[func_call.name].flags:
         raise ParseError(func_call.line, "Вызов прерывания из программы запрещен")
-    else:
+    elif ctx.find_function(func_call.name) is not None:
         translate_user_def_func(func_call, mm, ctx)
+    else:
+        raise ParseError(func_call.line, "Неизвестная функция")
 
 
 def translate_let_block(let_block: LetBlock, mm: MemoryMap, ctx: TranslatorContext):
