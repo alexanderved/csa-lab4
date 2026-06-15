@@ -212,9 +212,10 @@ def analyze_stop_cond(expr: Expr, ctx: AnalyzerContext):
     ind_var_idx, ind_var = ind_vars[0]
 
     bound_value = args[1 - ind_var_idx].value
-    if type(bound_value) is Symbol:
-        if not ctx.env.is_var_global(bound_value) or VarDefFlags.CONST not in ctx.global_vars[bound_value].flags:
-            return None
+    if type(bound_value) is Symbol and not (
+        ctx.env.is_var_global(bound_value) and VarDefFlags.CONST in ctx.global_vars[bound_value].flags
+    ):
+        return None
     if type(bound_value) is str:
         return None
 
