@@ -39,7 +39,15 @@ from src.translator.ast import (
     build_ast,
 )
 from src.translator.tokenizer import tokenize
-from src.translator.utils import ARITHMETIC_OPERATORS, BIT_OPERATORS, CMP_OPERATORS, SPECIAL_CHARACTERS, Env, EnvFactory, ParseError
+from src.translator.utils import (
+    ARITHMETIC_OPERATORS,
+    BIT_OPERATORS,
+    CMP_OPERATORS,
+    SPECIAL_CHARACTERS,
+    Env,
+    EnvFactory,
+    ParseError,
+)
 
 
 class TranslatorContext:
@@ -1023,20 +1031,20 @@ def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, mm: Me
             AddressMode.SP_IND: "MEM[MEM[SP + {}]]",
         }
 
-        operand = 0
+        operand = None
         operand_hex = []
         if type(instr.operand) is int:
             operand = addr_map[instr.addr_mode].format(f"{instr.operand:X}")
             operand_hex = hex_little_endian(to_little_endian(instr.operand))
         elif type(instr.operand) is Symbol:
-            operand = addr_map[instr.addr_mode].format('@' + instr.operand.value)
+            operand = addr_map[instr.addr_mode].format("@" + instr.operand.value)
             if instr.opcode in CONTROL_INSTRUCTIONS:
                 operand_hex = hex_little_endian(to_little_endian(mm.label_addresses[instr.operand]))
             else:
                 operand_hex = hex_little_endian(to_little_endian(mm.global_vars_addresses[instr.operand]))
         else:
             raise ParseError(None, "Отсутствует операнд инструкции")
-        
+
         opcode_hex = dec_to_hex((instr.opcode.value << 2) + instr.addr_mode.value)
         operand_hex_str = " ".join(operand_hex)
         instr_str = f"{opcode_hex} {operand_hex_str}    {instr.opcode.name} {operand}"
