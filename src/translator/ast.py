@@ -329,9 +329,12 @@ def parse_let_block(let_line: int, token_iter: Iterator[Token]):
 
         var_name_token = next(token_iter)
         if not var_name_token.is_symbol():
-            raise ParseError(next_token.line, "Имя переменной должно быть символом")
+            raise ParseError(var_name_token.line, "Имя переменной должно быть символом")
 
         var_name = Symbol(mangle_var_name(var_name_token.value))
+        if var_name in variables:
+            raise ParseError(var_name_token.line, "Повторяющееся имя переменной")
+
         var_value = parse_expr(token_iter)
         variables[var_name] = var_value
 

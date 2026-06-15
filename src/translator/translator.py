@@ -1026,7 +1026,7 @@ def write_debug_instruction(debug: TextIO, addr: int, instr: Instruction, mm: Me
         operand = 0
         operand_hex = []
         if type(instr.operand) is int:
-            operand = addr_map[instr.addr_mode].format(dec_to_hex(instr.operand))
+            operand = addr_map[instr.addr_mode].format(f"{instr.operand:X}")
             operand_hex = hex_little_endian(to_little_endian(instr.operand))
         elif type(instr.operand) is Symbol:
             operand = addr_map[instr.addr_mode].format('@' + instr.operand.value)

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from src.translator.translator import translate
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser("python -m src.translator")
 
 parser.add_argument("-i", "--source", help="Файл с исходным кодом", required=True)
 parser.add_argument("-o", "--binary", help="Файл для машинного кода")

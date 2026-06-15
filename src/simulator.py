@@ -1226,7 +1226,7 @@ def simulate(bin_path: str, config_path: str):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("python -m src.simulator")
 
     parser.add_argument("-i", "--input", help="Файл с машинным кодом", required=True)
     parser.add_argument("-c", "--config", help="Файл с конфигурацией", required=True)

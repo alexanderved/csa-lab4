@@ -8,7 +8,7 @@
     ; Вызов inline-функции
     (factorial-inner n 1))
 
-(defvar a 13)
+(defvar a 8)
 (defvar b 7)
 (defvar string "demo")
 (defvar arr (allocate-array 5))
@@ -19,6 +19,7 @@
 ; Примеры expression'ов
 (output 2 a)
 (output 2 (+ a b))
+(output 2 (factorial a))
 (output 2 (factorial b))
 (output 2 (setq b 5))
 (output 2 (write-array-element arr 1 6))
