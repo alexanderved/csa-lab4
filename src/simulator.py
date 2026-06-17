@@ -294,24 +294,43 @@ class InputDevice:
     tg: TickGenerator
     queue: list[tuple[int, str | int]]
     idx: int
+    last_read: int
 
     def __init__(self, tg, queue):
         self.tg = tg
         self.queue = queue
         self.idx = 0
+        self.last_read = -1
+
+    def current(self):
+        if self.idx < len(self.queue):
+            return self.queue[self.idx]
+        else:
+            return None
+        
+    def next(self):
+        if self.idx + 1 < len(self.queue):
+            return self.queue[self.idx + 1]
+        else:
+            return None
 
     def send_intrq(self, signals: SignalContext):
-        if self.idx < len(self.queue) and self.queue[self.idx][0] <= self.tg.tick:
+        while self.next() is not None and self.next()[0] <= self.tg.tick:
+            self.idx += 1
+
+        cur = self.current()
+        if self.last_read < self.idx and cur is not None and cur[0] <= self.tg.tick:
             signals.intrq = HIGH_SIGNAL
 
     def read(self):
         if self.idx >= len(self.queue):
             raise ValueError("Конец ввода")
 
-        t, value = self.queue[self.idx]
+        t, value = self.current()
         if t > self.tg.tick:
             raise ValueError("Запрос к устройству без сигнала готовности")
 
+        self.last_read = self.idx
         self.idx += 1
 
         if type(value) is int:

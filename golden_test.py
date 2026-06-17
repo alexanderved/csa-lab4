@@ -8,7 +8,7 @@ import pytest
 from src.simulator import simulate
 from src.translator import translate
 
-MAX_LOG = 10000
+MAX_LOG = 4000
 
 
 @pytest.mark.golden_test("golden/*.yaml")
@@ -45,7 +45,3 @@ def test_translator_and_machine(golden, caplog):
         assert code_hex == golden.out["debug"]
         assert stdout.getvalue() == golden.out["stdout"]
         assert log == golden.out["log"]
-
-        """ for i, (l1, l2) in enumerate(zip(log, golden.out["log"].split("\n"))):
-            # print(l1, l2)
-            assert l1 == l2 """
