@@ -14,8 +14,7 @@ from src.common import (
     ADDRESS_INSTRUCTION_SIZE,
     ADDRESSLESS_INSTRUCTIONS,
     CONTROL_INSTRUCTIONS,
-    MASK_GEN_INSTRUCTIONS,
-    MASKED_INSTRUCTIONS,
+    IMM_ONLY_INSTRUCTIONS,
     VECTOR_INSTRUCTIONS,
     VECTOR_SIZE,
     WORD_SIZE,
@@ -48,13 +47,14 @@ SEL_SP_MI16 = 3
 SEL_SP_DATA = 4
 
 SEL_AR_PC = 0
-SEL_AR_PC_PL1 = 1
+SEL_AR_NEXT_PC = 1
 SEL_AR_NEXT_SP = 2
 SEL_AR_SP = 3
 SEL_AR_DATA = 4
 
 SEL_ADDR_AR = 0
 SEL_ADDR_PC = 1
+SEL_ADDR_NEXT_PC = 2
 
 SEL_EXT_FALSE = 0
 SEL_EXT_TRUE = 1
@@ -138,7 +138,13 @@ def extract_instr(data: list[int]):
     value = to_little_endian(data[0])[0]
 
     opcode = Opcode(value >> 2)
-    addr_mode = AddressMode(value & 0b11) if opcode not in ADDRESSLESS_INSTRUCTIONS else None
+    addr_mode: AddressMode | None = AddressMode(value & 0b11)
+    if opcode in ADDRESSLESS_INSTRUCTIONS:
+        addr_mode = None
+    elif opcode in IMM_ONLY_INSTRUCTIONS:
+        addr_mode = AddressMode.IMM
+    elif opcode in {Opcode.ST, Opcode.VST, Opcode.VMST} and addr_mode == AddressMode.IMM:
+        raise ValueError(f"Инструкция {opcode.name} не поддерживает режим адресации IMM")
 
     return opcode, addr_mode
 
@@ -307,7 +313,7 @@ class InputDevice:
             return self.queue[self.idx]
         else:
             return None
-        
+
     def next(self):
         if self.idx + 1 < len(self.queue):
             return self.queue[self.idx + 1]
@@ -437,20 +443,21 @@ FETCH_INSTRUCTION_CYCLE = Cycle(
 
 FETCH_ADDRESS_CYCLE = Cycle(
     signals=[
-        SignalContext(
+        lambda addr_mode: SignalContext(
             sel_pc=SEL_PC_PL1,
             latch_pc=HIGH_SIGNAL,
-            sel_ar=SEL_AR_PC_PL1,
+            sel_sp=SEL_SP_DATA if addr_mode not in {AddressMode.IMM, AddressMode.ADDR} else 0,
+            sel_ar={
+                AddressMode.IMM: SEL_AR_NEXT_PC,
+                AddressMode.ADDR: SEL_AR_DATA,
+                AddressMode.SP: SEL_AR_NEXT_SP,
+                AddressMode.SP_IND: SEL_AR_NEXT_SP,
+            }[addr_mode],
             latch_ar=HIGH_SIGNAL,
-        ),
-        lambda addr_mode: SignalContext(
-            sel_addr=SEL_ADDR_AR,
-            rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+            sel_addr=SEL_ADDR_NEXT_PC if addr_mode != AddressMode.IMM else 0,
+            rd_mem=ext(LOW_SIGNAL) if addr_mode == AddressMode.IMM else s2v(HIGH_SIGNAL, LOW_SIGNAL),
             sel_in=SEL_IN_MEMORY,
             sel_ext=SEL_EXT_FALSE,
-            sel_sp=SEL_SP_DATA if addr_mode not in {AddressMode.IMM, AddressMode.ADDR} else 0,
-            sel_ar=SEL_AR_DATA if addr_mode == AddressMode.ADDR else SEL_AR_NEXT_SP,
-            latch_ar=HIGH_SIGNAL,
         ),
         SignalContext(
             sel_addr=SEL_ADDR_AR,
@@ -462,13 +469,16 @@ FETCH_ADDRESS_CYCLE = Cycle(
         ),
     ],
     transitions=[
-        lambda step, addr_mode: 0 if addr_mode == AddressMode.IMM else step + 1,
         lambda step, addr_mode: 0 if addr_mode != AddressMode.SP_IND else step + 1,
     ],
     debug_info=[
-        "FETCH ADDR: PC, AR <- PC + 1",
-        lambda cu, _: (
-            f"FETCH ADDR: AR <- {'' if cu.dp.ir_addr_mode == AddressMode.ADDR else 'SP +'} {cu.dp.memory.read_word(cu.dp.ar)}"
+        lambda cu, _: "FETCH ADDR: AR <- {}".format(
+            {
+                AddressMode.IMM: "PC + 1",
+                AddressMode.ADDR: "MEM[PC + 1]",
+                AddressMode.SP: "SP + MEM[PC + 1]",
+                AddressMode.SP_IND: "SP + MEM[PC + 1]",
+            }[cu.dp.ir_addr_mode]
         ),
         "FETCH ADDR INDIRECT: AR <- MEM[AR]",
     ],
@@ -532,96 +542,11 @@ INTERRUPT_CYCLE = Cycle(
             f"INT: PC <- {mux(s.sel_pc, '', 'PC + 4', 'PC + 1', f'0x{cu.dp.memory.read_word(cu.dp.ar):X}')}"
             + (", AR, SP <- SP - 4" if cu.ei & s.intrq else "")
         ),
-        "INT: MEM[SP] <- PC, AR, SP <- SP - 4",
-        "INT: MEM[SP] <- MASK, AR, SP <- SP - 4",
-        "INT: MEM[SP] <- NZVC, AR, SP <- SP - 16",
-        "INT: MEM[SP] <- AC, PC <- 0x5",
+        "INT: MEM[SP] <- PC; AR, SP <- SP - 4",
+        "INT: MEM[SP] <- MASK; AR, SP <- SP - 4",
+        "INT: MEM[SP] <- NZVC; AR, SP <- SP - 16",
+        "INT: MEM[SP] <- AC; PC <- 0x5",
     ],
-)
-
-CALL_CYCLE = Cycle(
-    signals=[
-        SignalContext(
-            sel_sp=SEL_SP_MI4,
-            latch_sp=HIGH_SIGNAL,
-            sel_ar=SEL_AR_NEXT_SP,
-            latch_ar=HIGH_SIGNAL,
-        ),
-        SignalContext(
-            sel_out=SEL_OUT_PC,
-            sel_addr=SEL_ADDR_AR,
-            wr_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
-            sel_ar=SEL_AR_PC,
-            latch_ar=HIGH_SIGNAL,
-        ),
-    ]
-)
-
-RET_CYCLE = Cycle(
-    signals=[
-        SignalContext(
-            sel_sp=SEL_SP_PL4,
-            latch_sp=HIGH_SIGNAL,
-            sel_ar=SEL_AR_SP,
-            latch_ar=HIGH_SIGNAL,
-        ),
-        SignalContext(
-            sel_addr=SEL_ADDR_AR,
-            rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
-            sel_in=SEL_IN_MEMORY,
-            sel_ext=SEL_EXT_FALSE,
-            sel_pc=SEL_PC_JMP,
-            latch_pc=HIGH_SIGNAL,
-        ),
-    ]
-)
-
-IRET_CYCLE = Cycle(
-    signals=[
-        SignalContext(
-            sel_sp=SEL_SP_PL16,
-            latch_sp=HIGH_SIGNAL,
-            sel_ar=SEL_AR_SP,
-            latch_ar=HIGH_SIGNAL,
-        ),
-        SignalContext(
-            sel_addr=SEL_ADDR_AR,
-            rd_mem=ext(HIGH_SIGNAL),
-            sel_in=SEL_IN_MEMORY,
-            sel_ext=SEL_EXT_FALSE,
-            sel_ac=SEL_AC_DATA,
-            latch_ac=ext(HIGH_SIGNAL),
-            sel_sp=SEL_SP_PL4,
-            latch_sp=HIGH_SIGNAL,
-            sel_ar=SEL_AR_SP,
-            latch_ar=HIGH_SIGNAL,
-        ),
-        SignalContext(
-            sel_addr=SEL_ADDR_AR,
-            rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
-            sel_in=SEL_IN_MEMORY,
-            sel_ext=SEL_EXT_FALSE,
-            op=ALU_OP_SET_FLAGS,
-            latch_flags=HIGH_SIGNAL,
-            sel_sp=SEL_SP_PL4,
-            latch_sp=HIGH_SIGNAL,
-            sel_ar=SEL_AR_SP,
-            latch_ar=HIGH_SIGNAL,
-        ),
-        SignalContext(
-            set_ei=HIGH_SIGNAL,
-            sel_addr=SEL_ADDR_AR,
-            rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
-            sel_in=SEL_IN_MEMORY,
-            sel_ext=SEL_EXT_FALSE,
-            op=ALU_OP_SET_MASK,
-            latch_mask=HIGH_SIGNAL,
-            sel_sp=SEL_SP_PL4,
-            latch_sp=HIGH_SIGNAL,
-            sel_ar=SEL_AR_SP,
-            latch_ar=HIGH_SIGNAL,
-        ),
-    ]
 )
 
 
@@ -641,6 +566,7 @@ class ControlUnit:
     ei: int
     port: int
     pc: int
+    next_pc: int
 
     stage: Stage
     cycle_step: int
@@ -658,9 +584,13 @@ class ControlUnit:
         self.ei = 1
         self.port = 0
         self.pc = START_ADDR
+        self.next_pc = START_ADDR
 
         self.stage = Stage.FETCH_INSTR
         self.cycle_step = 0
+
+        self.op_size = 0
+        self.do_jump = False
 
         self.is_isr = False
 
@@ -670,6 +600,11 @@ class ControlUnit:
     def log_debug_execute_cycle(self, opcode: Opcode):
         if opcode in ADDRESSLESS_INSTRUCTIONS or self.cycle_step != 0:
             log(debug_info_template(opcode.name, self))
+        elif opcode == Opcode.CALL:
+            log(debug_info_template(f"{opcode.name}", self))
+        elif opcode == Opcode.ST or opcode == Opcode.VST or opcode == Opcode.VMST:
+            ac = self.dp.ac[0] if opcode not in VECTOR_INSTRUCTIONS else self.dp.ac
+            log(debug_info_template(f"{opcode.name} {ac} @ 0x{self.dp.ar:X}", self))
         else:
             data = (
                 self.dp.memory.read_word(self.dp.ar)
@@ -700,13 +635,7 @@ class ControlUnit:
             log(cycle.debug(self.cycle_step, self, signals))
         self.cycle_step = cycle.transition(self.cycle_step, *transition_args)
 
-    def perform_execute_operation_cycle(self, signals: SignalContext):  # noqa C901
-        applied_mask = s2v(HIGH_SIGNAL, LOW_SIGNAL)
-        if self.dp.ir_opcode in MASKED_INSTRUCTIONS:
-            applied_mask = self.dp.mask
-        elif self.dp.ir_opcode in VECTOR_INSTRUCTIONS:
-            applied_mask = ext(HIGH_SIGNAL)
-
+    def perform_execute_operation_cycle(self, signals: SignalContext):
         general_binary_ops = {
             Opcode.ADD: ALU_OP_ADD,
             Opcode.SUB: ALU_OP_SUB,
@@ -730,36 +659,29 @@ class ControlUnit:
             Opcode.VMGT: ALU_OP_MASK_GT,
             Opcode.VMGE: ALU_OP_MASK_GE,
         }
-
         opcode = self.dp.ir_opcode
         needs_ext = self.dp.ir_addr_mode == AddressMode.IMM and opcode in VECTOR_INSTRUCTIONS
-        new_signals = SignalContext()
 
         self.log_debug_execute_cycle(opcode)
 
-        match opcode:
-            case Opcode.NOP:
-                self.stage = Stage.INTERRUPT
+        if opcode in general_binary_ops:
+            applied_mask = (
+                ext(HIGH_SIGNAL) if self.dp.ir_opcode in VECTOR_INSTRUCTIONS else s2v(HIGH_SIGNAL, LOW_SIGNAL)
+            )
 
-            case Opcode.LD | Opcode.VLD | Opcode.VMLD:
-                new_signals = SignalContext(
-                    sel_addr=SEL_ADDR_AR,
-                    rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL) if needs_ext else applied_mask,
-                    sel_in=SEL_IN_MEMORY,
-                    sel_ext=SEL_EXT_TRUE if needs_ext else SEL_EXT_FALSE,
-                    sel_ac=SEL_AC_DATA,
-                    latch_ac=applied_mask,
-                )
+            latch_mask = self.dp.ir_opcode in {
+                Opcode.VMNOT,
+                Opcode.VMEQ,
+                Opcode.VMNE,
+                Opcode.VMLT,
+                Opcode.VMLE,
+                Opcode.VMGT,
+                Opcode.VMGE,
+            }
 
-            case Opcode.ST | Opcode.VST | Opcode.VMST:
-                new_signals = SignalContext(
-                    sel_out=SEL_OUT_AC,
-                    sel_addr=SEL_ADDR_AR,
-                    wr_mem=applied_mask,
-                )
-
-            case opcode if opcode in general_binary_ops:
-                new_signals = SignalContext(
+            self.merge_signals(
+                signals,
+                SignalContext(
                     sel_addr=SEL_ADDR_AR,
                     rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL) if needs_ext else applied_mask,
                     sel_in=SEL_IN_MEMORY,
@@ -768,12 +690,83 @@ class ControlUnit:
                     sel_ac=SEL_AC_ALU_RES,
                     latch_ac=applied_mask if opcode != Opcode.CMP else ext(0),
                     latch_flags=HIGH_SIGNAL,
-                    latch_mask=HIGH_SIGNAL if opcode in MASK_GEN_INSTRUCTIONS else LOW_SIGNAL,
-                )
+                    latch_mask=latch_mask,
+                ),
+            )
 
-            case Opcode.ADC:
-                if self.cycle_step == 0:
-                    new_signals = SignalContext(
+            return
+
+        if opcode == Opcode.NOP:
+            self.stage = Stage.INTERRUPT
+            return
+
+        cycles = {
+            Opcode.LD: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_FALSE,
+                        sel_ac=SEL_AC_DATA,
+                        latch_ac=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                    )
+                ]
+            ),
+            Opcode.VLD: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL) if needs_ext else ext(HIGH_SIGNAL),
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_TRUE if needs_ext else SEL_EXT_FALSE,
+                        sel_ac=SEL_AC_DATA,
+                        latch_ac=ext(HIGH_SIGNAL),
+                    )
+                ]
+            ),
+            Opcode.VMLD: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL) if needs_ext else self.dp.mask,
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_TRUE if needs_ext else SEL_EXT_FALSE,
+                        sel_ac=SEL_AC_DATA,
+                        latch_ac=self.dp.mask,
+                    )
+                ]
+            ),
+            Opcode.ST: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_out=SEL_OUT_AC,
+                        sel_addr=SEL_ADDR_AR,
+                        wr_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                    )
+                ]
+            ),
+            Opcode.VST: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_out=SEL_OUT_AC,
+                        sel_addr=SEL_ADDR_AR,
+                        wr_mem=ext(HIGH_SIGNAL),
+                    )
+                ]
+            ),
+            Opcode.VMST: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_out=SEL_OUT_AC,
+                        sel_addr=SEL_ADDR_AR,
+                        wr_mem=self.dp.mask,
+                    )
+                ]
+            ),
+            Opcode.ADC: Cycle(
+                signals=[
+                    SignalContext(
                         sel_addr=SEL_ADDR_AR,
                         rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
                         sel_in=SEL_IN_MEMORY,
@@ -782,97 +775,119 @@ class ControlUnit:
                         sel_ac=SEL_AC_ALU_RES,
                         latch_ac=s2v(HIGH_SIGNAL, LOW_SIGNAL),
                         latch_flags=HIGH_SIGNAL,
-                    )
-
-                    if self.dp.flags[CF] == 1:
-                        self.cycle_step = 1
-                else:
-                    new_signals = SignalContext(
+                    ),
+                    SignalContext(
                         op=ALU_OP_INC,
                         sel_ac=SEL_AC_ALU_RES,
                         latch_ac=s2v(HIGH_SIGNAL, LOW_SIGNAL),
                         latch_flags=HIGH_SIGNAL,
+                    ),
+                ],
+                transitions=[lambda step: 0 if self.dp.flags[CF] == 0 else step + 1],
+            ),
+            Opcode.NOT: Cycle(
+                signals=[
+                    SignalContext(
+                        op=ALU_OP_NOT,
+                        sel_ac=SEL_AC_ALU_RES,
+                        latch_ac=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                        latch_flags=HIGH_SIGNAL,
                     )
-                    self.cycle_step = 0
-
-            case Opcode.NOT:
-                new_signals = SignalContext(
-                    op=ALU_OP_NOT,
-                    sel_ac=SEL_AC_ALU_RES,
-                    latch_ac=s2v(HIGH_SIGNAL),
-                    latch_flags=HIGH_SIGNAL,
-                )
-
-            case Opcode.VMNOT:
-                new_signals = SignalContext(
-                    op=ALU_OP_MASK_NOT,
-                    latch_mask=HIGH_SIGNAL,
-                )
-
-            case Opcode.PUSH | Opcode.VPUSH:
-                if self.cycle_step == 0:
-                    new_signals = SignalContext(
-                        sel_sp=SEL_SP_MI16 if opcode == Opcode.VPUSH else SEL_SP_MI4,
+                ]
+            ),
+            Opcode.VMNOT: Cycle(
+                signals=[
+                    SignalContext(
+                        op=ALU_OP_MASK_NOT,
+                        latch_mask=HIGH_SIGNAL,
+                    )
+                ]
+            ),
+            Opcode.PUSH: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_sp=SEL_SP_MI4,
                         latch_sp=HIGH_SIGNAL,
                         sel_ar=SEL_AR_NEXT_SP,
                         latch_ar=HIGH_SIGNAL,
-                    )
-                    self.cycle_step = 1
-                else:
-                    new_signals = SignalContext(
+                    ),
+                    SignalContext(
                         sel_out=SEL_OUT_AC,
                         sel_addr=SEL_ADDR_AR,
-                        wr_mem=applied_mask,
-                    )
-                    self.cycle_step = 0
-
-            case Opcode.POP | Opcode.VPOP:
-                new_signals = SignalContext(
-                    sel_sp=SEL_SP_PL16 if opcode == Opcode.VPOP else SEL_SP_PL4,
-                    latch_sp=HIGH_SIGNAL,
-                )
-
-            case Opcode.IN:
-                if self.cycle_step == 0:
-                    new_signals = SignalContext(
+                        wr_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                    ),
+                ]
+            ),
+            Opcode.VPUSH: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_sp=SEL_SP_MI16,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_NEXT_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                    SignalContext(
+                        sel_out=SEL_OUT_AC,
+                        sel_addr=SEL_ADDR_AR,
+                        wr_mem=ext(HIGH_SIGNAL),
+                    ),
+                ]
+            ),
+            Opcode.POP: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_sp=SEL_SP_PL4,
+                        latch_sp=HIGH_SIGNAL,
+                    ),
+                ]
+            ),
+            Opcode.VPOP: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_sp=SEL_SP_PL16,
+                        latch_sp=HIGH_SIGNAL,
+                    ),
+                ]
+            ),
+            Opcode.IN: Cycle(
+                signals=[
+                    SignalContext(
                         sel_addr=SEL_ADDR_AR,
                         rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
                         sel_in=SEL_IN_MEMORY,
                         sel_ext=SEL_EXT_FALSE,
                         latch_port=HIGH_SIGNAL,
-                    )
-                    self.cycle_step = 1
-                else:
-                    new_signals = SignalContext(
+                    ),
+                    SignalContext(
                         rd_in=HIGH_SIGNAL,
                         sel_in=SEL_IN_INPUT_DEV,
                         sel_ext=SEL_EXT_FALSE,
                         sel_ac=SEL_AC_DATA,
                         latch_ac=s2v(HIGH_SIGNAL, LOW_SIGNAL),
-                    )
-                    self.cycle_step = 0
-
-            case Opcode.OUT:
-                if self.cycle_step == 0:
-                    new_signals = SignalContext(
+                    ),
+                ]
+            ),
+            Opcode.OUT: Cycle(
+                signals=[
+                    SignalContext(
                         sel_addr=SEL_ADDR_AR,
                         rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
                         sel_in=SEL_IN_MEMORY,
                         sel_ext=SEL_EXT_FALSE,
                         latch_port=HIGH_SIGNAL,
-                    )
-                    self.cycle_step = 1
-                else:
-                    new_signals = SignalContext(
+                    ),
+                    SignalContext(
                         wr_out=HIGH_SIGNAL,
                         sel_out=SEL_OUT_AC,
-                    )
-                    self.cycle_step = 0
+                    ),
+                ]
+            ),
+        }
 
-            case _:
-                raise ValueError(f"Неожиданный опкод {opcode} в цикле выполнения операции")
+        if opcode not in cycles:
+            raise ValueError(f"Неизвестный опкод {opcode} в цикле выполнения операции")
 
-        self.merge_signals(signals, new_signals)
+        self.perform_cycle(cycles[opcode], signals, print_debug=False)
 
     def perform_execute_control_cycle(self, signals: SignalContext):
         cond_jmp_map = {
@@ -889,44 +904,163 @@ class ControlUnit:
         if opcode not in cond_jmp_map:
             self.log_debug_execute_cycle(opcode)
 
-        op_size, do_jump = None, None
-        match opcode:
-            case Opcode.HALT:
-                self.stage = Stage.HALT
+        if opcode in cond_jmp_map:
+            self.stage = Stage.INTERRUPT
+            self.op_size, self.do_jump = opcode.size(), cond_jmp_map[opcode]()
+            return
 
-            case opcode if opcode in cond_jmp_map:
-                self.stage = Stage.INTERRUPT
-                op_size, do_jump = opcode.size(), cond_jmp_map[opcode]()
+        if opcode == Opcode.HALT:
+            self.stage = Stage.HALT
+            return
 
-            case Opcode.CALL:
-                self.perform_cycle(CALL_CYCLE, signals, print_debug=False)
+        cycles = {
+            Opcode.CALL: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_pc=SEL_PC_PL1,
+                        latch_pc=HIGH_SIGNAL,
+                        sel_sp=SEL_SP_MI4,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_NEXT_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                    SignalContext(
+                        sel_out=SEL_OUT_PC,
+                        sel_addr=SEL_ADDR_AR,
+                        wr_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                        sel_ar=SEL_AR_PC,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                ]
+            ),
+            Opcode.RET: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_sp=SEL_SP_PL4,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                    SignalContext(
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_FALSE,
+                        sel_pc=SEL_PC_JMP,
+                        latch_pc=HIGH_SIGNAL,
+                    ),
+                ]
+            ),
+            Opcode.IRET: Cycle(
+                signals=[
+                    SignalContext(
+                        sel_sp=SEL_SP_PL16,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                    SignalContext(
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=ext(HIGH_SIGNAL),
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_FALSE,
+                        sel_ac=SEL_AC_DATA,
+                        latch_ac=ext(HIGH_SIGNAL),
+                        sel_sp=SEL_SP_PL4,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                    SignalContext(
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_FALSE,
+                        op=ALU_OP_SET_FLAGS,
+                        latch_flags=HIGH_SIGNAL,
+                        sel_sp=SEL_SP_PL4,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                    SignalContext(
+                        set_ei=HIGH_SIGNAL,
+                        sel_addr=SEL_ADDR_AR,
+                        rd_mem=s2v(HIGH_SIGNAL, LOW_SIGNAL),
+                        sel_in=SEL_IN_MEMORY,
+                        sel_ext=SEL_EXT_FALSE,
+                        op=ALU_OP_SET_MASK,
+                        latch_mask=HIGH_SIGNAL,
+                        sel_sp=SEL_SP_PL4,
+                        latch_sp=HIGH_SIGNAL,
+                        sel_ar=SEL_AR_SP,
+                        latch_ar=HIGH_SIGNAL,
+                    ),
+                ]
+            ),
+        }
+        jump_infos = {
+            Opcode.CALL: (opcode.size(), True),
+            Opcode.RET: (WORD_SIZE, False),
+            Opcode.IRET: (opcode.size(), True),
+        }
 
-                if self.cycle_step == 0:
-                    op_size, do_jump = None, True
+        if opcode not in cycles:
+            raise ValueError(f"Неизвестный опкод {opcode} в цикле выполнения перехода")
 
-            case Opcode.RET:
-                self.perform_cycle(RET_CYCLE, signals, print_debug=False)
-
-                if self.cycle_step == 0:
-                    op_size, do_jump = WORD_SIZE, False
-
-            case Opcode.IRET:
-                self.perform_cycle(IRET_CYCLE, signals, print_debug=False)
-
-                if self.cycle_step == 0:
-                    op_size, do_jump = None, True
-
-            case _:
-                raise ValueError(f"Неожиданный опкод {opcode} в цикле выполнения перехода")
-
-        return op_size, do_jump
+        self.perform_cycle(cycles[opcode], signals, print_debug=False)
+        if self.cycle_step == 0:
+            self.op_size, self.do_jump = jump_infos[opcode]
 
     def perform_execute_cycle(self, signals: SignalContext):
+        self.op_size, self.do_jump = self.dp.ir_opcode.size(), False
         if self.dp.ir_opcode in CONTROL_INSTRUCTIONS:
-            return self.perform_execute_control_cycle(signals)
+            self.perform_execute_control_cycle(signals)
         else:
             self.perform_execute_operation_cycle(signals)
-            return self.dp.ir_opcode.size(), False
+
+    def execute_stage(self, signals: SignalContext):
+        if self.stage == Stage.FETCH_INSTR:
+            self.perform_cycle(FETCH_INSTRUCTION_CYCLE, signals)
+
+        if self.stage == Stage.FETCH_ADDR:
+            if self.dp.ir_addr_mode is not None and self.dp.ir_opcode != Opcode.CALL:
+                self.perform_cycle(FETCH_ADDRESS_CYCLE, signals, [self.dp.ir_addr_mode], [self.dp.ir_addr_mode])
+            else:
+                self.next_stage()
+
+        print_int_debug = True
+        intrq = signals.intrq & self.ei
+
+        if self.stage == Stage.EXECUTE:
+            self.perform_execute_cycle(signals)
+            if (
+                self.stage == Stage.EXECUTE
+                and signals.latch_pc == LOW_SIGNAL
+                and not self.do_jump
+                and intrq == LOW_SIGNAL
+            ):
+                print_int_debug = False
+                self.next_stage()
+
+        if self.stage == Stage.HALT:
+            return
+
+        if self.stage == Stage.INTERRUPT:
+            self.perform_cycle(INTERRUPT_CYCLE, signals, [self.op_size, self.do_jump, intrq], [intrq], print_int_debug)
+
+    def latch_registers(self, signals: SignalContext):
+        if signals.reset_ei == HIGH_SIGNAL:
+            self.ei = 0
+            self.is_isr = True
+        elif signals.set_ei == HIGH_SIGNAL:
+            self.ei = 1
+            self.is_isr = False
+
+        if signals.latch_pc == HIGH_SIGNAL:
+            self.pc = mux(signals.sel_pc, INT_ADDR, self.pc + 4, self.pc + 1, self.dp.data[0])
+        if signals.latch_port == HIGH_SIGNAL:
+            self.port = self.dp.data[0]
 
     def next_stage(self):
         if self.cycle_step != 0:
@@ -943,50 +1077,12 @@ class ControlUnit:
         self.stage = next_stage_map[self.stage]
 
     def simulate(self, signals: SignalContext):
-        if self.stage == Stage.FETCH_INSTR:
-            self.perform_cycle(FETCH_INSTRUCTION_CYCLE, signals)
+        self.execute_stage(signals)
 
-        if self.stage == Stage.FETCH_ADDR:
-            if self.dp.ir_addr_mode is not None:
-                self.perform_cycle(FETCH_ADDRESS_CYCLE, signals, [self.dp.ir_addr_mode], [self.dp.ir_addr_mode])
-            else:
-                self.next_stage()
-
-        print_int_debug = True
-        intrq = signals.intrq & self.ei
-        if self.stage == Stage.EXECUTE:
-            self.op_size, self.do_jump = self.perform_execute_cycle(signals)
-            if (
-                self.stage == Stage.EXECUTE
-                and signals.latch_pc == LOW_SIGNAL
-                and not self.do_jump
-                and intrq == LOW_SIGNAL
-            ):
-                print_int_debug = False
-                self.next_stage()
-
-        if self.stage == Stage.HALT:
-            return
-
-        if self.stage == Stage.INTERRUPT:
-            self.perform_cycle(INTERRUPT_CYCLE, signals, [self.op_size, self.do_jump, intrq], [intrq], print_int_debug)
-
+        self.next_pc = mux(signals.sel_pc, INT_ADDR, self.pc + 4, self.pc + 1, 0)
         self.dp.simulate(self, signals)
 
-        if signals.reset_ei == HIGH_SIGNAL:
-            self.ei = 0
-            self.is_isr = True
-        elif signals.set_ei == HIGH_SIGNAL:
-            self.ei = 1
-            self.is_isr = False
-
-        self.pc = (
-            mux(signals.sel_pc, INT_ADDR, self.pc + 4, self.pc + 1, self.dp.data[0])
-            if signals.latch_pc == HIGH_SIGNAL
-            else self.pc
-        )
-        self.port = self.dp.data[0] if signals.latch_port else self.port
-
+        self.latch_registers(signals)
         self.next_stage()
 
 
@@ -1036,7 +1132,7 @@ class DataPath:
             if cu.port in self.out_devs:
                 self.out_devs[cu.port].write(data_out[0])
 
-        self.memory.write(mux(signals.sel_addr, self.ar, cu.pc), data_out, signals.wr_mem)
+        self.memory.write(mux(signals.sel_addr, self.ar, cu.pc, cu.next_pc), data_out, signals.wr_mem)
 
     def read_data(self, cu: ControlUnit, signals: SignalContext):
         data_in = s2v(0)
@@ -1044,7 +1140,7 @@ class DataPath:
             if signals.rd_in == HIGH_SIGNAL and cu.port == 0:
                 data_in[0] = self.in_dev.read()
         elif signals.sel_in == SEL_IN_MEMORY:
-            data_in = self.memory.read(mux(signals.sel_addr, self.ar, cu.pc), signals.rd_mem)
+            data_in = self.memory.read(mux(signals.sel_addr, self.ar, cu.pc, cu.next_pc), signals.rd_mem)
 
         return mux(signals.sel_ext, data_in, ext(data_in[0]))
 
@@ -1170,7 +1266,7 @@ class DataPath:
 
         next_sp = mux(signals.sel_sp, self.sp + 4, self.sp - 4, self.sp + 16, self.sp - 16, self.sp + self.data[0])
         if signals.latch_ar == HIGH_SIGNAL:
-            self.ar = mux(signals.sel_ar, cu.pc, cu.pc + 1, next_sp, self.sp, self.data[0])
+            self.ar = mux(signals.sel_ar, cu.pc, cu.next_pc, next_sp, self.sp, self.data[0])
 
         if signals.latch_sp == HIGH_SIGNAL:
             self.sp = next_sp

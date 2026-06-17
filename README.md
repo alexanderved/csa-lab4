@@ -290,11 +290,13 @@ Port-mapped IO — ввод-вывод осуществляется с помо�
 ### Цикл исполнения инструкции
 
 1. **Выборка инструкции** (1 такт): в регистр `IR` считывается опкод и режим адресации;
-2. (Для инструкций с операндом) **Выборка операнда**:
-    1. **Выборка непосредственного операнда** (1 такт): в регистр `AR` записывается `PC + 1`;
-    2. (Кроме `IMM`) **Прямая выборка адреса** (1 такт): значение по адресу в `AR` (`MEM[AR]`) или `SP + MEM[AR]` считывается в `AR`;
-    3. (Для `SP_IND`) **Косвенная выборка адреса** (1 такт): `MEM[AR]` считывается в `AR`;
-3. (Кроме инструкций перехода) **Исполнение инструкции**
+2. (Для инструкций с операндом) **Выборка адреса операнда**:
+    1. **Прямая выборка адреса** (1 такт):
+        - для `IMM`: в регистр `AR` записывается `PC + 1`;
+        - для `ADDR`: в регистр `AR` записывается `MEM[PC + 1]`;
+        - для `SP` и `SP_IND`: в регистр `AR` записывается `SP + MEM[PC + 1]`;
+    2. (Для `SP_IND`) **Косвенная выборка адреса** (1 такт): в `AR` считывается `MEM[AR]`;
+3. (Кроме инструкций перехода `J**`) **Исполнение инструкции**
 4. **Переход** (0-1 тактов, может быть совмещен с исполнением инструкции): в `PC` записывается адрес следующей инструкции;
 5. (Если выполнены необходимые условия) **Прерывание** (4 такта):
     1. Сохранение `PC` на стек;
@@ -308,20 +310,20 @@ Port-mapped IO — ввод-вывод осуществляется с помо�
 | :------: | ------------- | :---------: | :------------: | -------------------- |
 | `000000` | `NOP`         |      -      | 2              | Пустая инструкция    |
 | `000001` | `HALT`        |      -      | 2              | Остановка выполнения |
-| `000010` | `LD <arg>`    |      +      | 3-5            | Загрузка машинного слова из памяти в `AC` |
-| `000011` | `ST <arg>`    | Кроме `IMM` | 4-5            | Сохранение машинного слова из `AC` в память |
-| `000100` | `ADD <arg>`   |      +      | 3-5            | `AC <- AC + <arg>`   |
-| `000101` | `ADC <arg>`   |      +      | 3-6            | `AC <- AC + <arg> + C` |
-| `000110` | `SUB <arg>`   |      +      | 3-5            | `AC <- AC - <arg>`   |
-| `000111` | `CMP <arg>`   |      +      | 3-5            | Установка флагов на основе результата `AC - <arg>` |
-| `001000` | `MUL <arg>`   |      +      | 3-5            | `AC <- AC * <arg>`   |
-| `001001` | `DIV <arg>`   |      +      | 3-5            | `AC <- AC / <arg>`   |
-| `001010` | `REM <arg>`   |      +      | 3-5            | `AC <- AC % <arg>`   |
-| `001011` | `SHL <arg>`   |      +      | 3-5            | `AC <- AC << <arg>`  |
-| `001100` | `SHR <arg>`   |      +      | 3-5            | `AC <- AC >> <arg>`  |
-| `001101` | `AND <arg>`   |      +      | 3-5            | `AC <- AC & <arg>`   |
-| `001110` | `OR <arg>`    |      +      | 3-5            | `AC <- AC \| <arg>`  |
-| `001111` | `XOR <arg>`   |      +      | 3-5            | `AC <- AC ^ <arg>`   |
+| `000010` | `LD <arg>`    |      +      | 3-4            | Загрузка машинного слова из памяти в `AC` |
+| `000011` | `ST <arg>`    | Кроме `IMM` | 3-4            | Сохранение машинного слова из `AC` в память |
+| `000100` | `ADD <arg>`   |      +      | 3-4            | `AC <- AC + <arg>`   |
+| `000101` | `ADC <arg>`   |      +      | 3-5            | `AC <- AC + <arg> + C` |
+| `000110` | `SUB <arg>`   |      +      | 3-4            | `AC <- AC - <arg>`   |
+| `000111` | `CMP <arg>`   |      +      | 3-4            | Установка флагов на основе результата `AC - <arg>` |
+| `001000` | `MUL <arg>`   |      +      | 3-4            | `AC <- AC * <arg>`   |
+| `001001` | `DIV <arg>`   |      +      | 3-4            | `AC <- AC / <arg>`   |
+| `001010` | `REM <arg>`   |      +      | 3-4            | `AC <- AC % <arg>`   |
+| `001011` | `SHL <arg>`   |      +      | 3-4            | `AC <- AC << <arg>`  |
+| `001100` | `SHR <arg>`   |      +      | 3-4            | `AC <- AC >> <arg>`  |
+| `001101` | `AND <arg>`   |      +      | 3-4            | `AC <- AC & <arg>`   |
+| `001110` | `OR <arg>`    |      +      | 3-4            | `AC <- AC \| <arg>`  |
+| `001111` | `XOR <arg>`   |      +      | 3-4            | `AC <- AC ^ <arg>`   |
 | `010000` | `NOT`         |      -      | 2              | `AC <- ~AC`          |
 | `010001` | `PUSH`        |      -      | 3              | `SP <- SP - 4` <br> `MEM[SP] <- AC` |
 | `010010` | `POP`         |      -      | 2              | `SP <- SP + 4` |
@@ -332,28 +334,28 @@ Port-mapped IO — ввод-вывод осуществляется с помо�
 | `010111` | `JLE <addr>`  |    `IMM`    | 3              | `PC <- <addr>`, если `N ≠ V` или `Z = 1` |
 | `011000` | `JGT <addr>`  |    `IMM`    | 3              | `PC <- <addr>`, если `N = V` и `Z = 0` |
 | `011001` | `JGE <addr>`  |    `IMM`    | 3              | `PC <- <addr>`, если `N = V` |
-| `011010` | `CALL <addr>` |    `IMM`    | 5              | `SP <- SP - 4` <br> `MEM[SP] <- PC` <br> `PC <- <addr>` |
-| `011011` | `RET`         |      -      | 4              | `PC <- MEM[SP] + 4` <br> `SP <- SP + 4` |
-| `011100` | `IRET`        |      -      | 6              | Восстановление регистров `PC`, `MASK`, `FLAGS` и `AC` со стека и включение прерывания |
+| `011010` | `CALL <addr>` |    `IMM`    | 4              | Вызов функции: <br> `SP <- SP - 4` <br> `MEM[SP] <- PC` <br> `PC <- <addr>` |
+| `011011` | `RET`         |      -      | 4              | Возврат из функции: <br> `PC <- MEM[SP] + 4` <br> `SP <- SP + 4` |
+| `011100` | `IRET`        |      -      | 6              | Возврат из обработчика прерываний: восстановление регистров `PC`, `MASK`, `FLAGS` и `AC` со стека и включение прерывания |
 | `011101` | `IN <port>`   |    `IMM`    | 4              | Считывание значения из устройства под номером `<port>` в `AC` |
 | `011110` | `OUT <port>`  |    `IMM`    | 4              | Запись значения из `AC` в устройство под номером `<port>` |
-| `011111` | `VLD <arg>`   |      +      | 3-5            | Векторный аналог `LD` |
-| `100000` | `VST <arg>`   | Кроме `IMM` | 4-5            | Векторный аналог `ST` |
-| `100001` | `VADD <arg>`  |      +      | 3-5            | Векторный аналог `ADD` |
-| `100010` | `VSUB <arg>`  |      +      | 3-5            | Векторный аналог `SUB` |
-| `100011` | `VMUL <arg>`  |      +      | 3-5            | Векторный аналог `MUL` |
-| `100100` | `VDIV <arg>`  |      +      | 3-5            | Векторный аналог `DIV` |
+| `011111` | `VLD <arg>`   |      +      | 3-4            | Векторный аналог `LD` |
+| `100000` | `VST <arg>`   | Кроме `IMM` | 3-4            | Векторный аналог `ST` |
+| `100001` | `VADD <arg>`  |      +      | 3-4            | Векторный аналог `ADD` |
+| `100010` | `VSUB <arg>`  |      +      | 3-4            | Векторный аналог `SUB` |
+| `100011` | `VMUL <arg>`  |      +      | 3-4            | Векторный аналог `MUL` |
+| `100100` | `VDIV <arg>`  |      +      | 3-4            | Векторный аналог `DIV` |
 | `100101` | `VPUSH`       |      -      | 3              | `SP <- SP - 16` <br> `MEM[SP] <- AC` |
 | `100110` | `VPOP`        |      -      | 2              | `SP <- SP + 16` |
 | `100111` | `VMNOT`       |      -      | 2              | `MASK <- ~MASK` |
-| `101000` | `VMEQ <arg>`  |      +      | 3-5            | Установка `MASK` на основе результата сравнения `AC = <arg>` |
-| `101001` | `VMNE <arg>`  |      +      | 3-5            | Установка `MASK` на основе результата сравнения `AC /= <arg>` |
-| `101010` | `VMLT <arg>`  |      +      | 3-5            | Установка `MASK` на основе результата сравнения `AC < <arg>` |
-| `101011` | `VMLE <arg>`  |      +      | 3-5            | Установка `MASK` на основе результата сравнения `AC <= <arg>` |
-| `101100` | `VMGT <arg>`  |      +      | 3-5            | Установка `MASK` на основе результата сравнения `AC > <arg>` |
-| `101101` | `VMGT <arg>`  |      +      | 3-5            | Установка `MASK` на основе результата сравнения `AC >= <arg>` |
-| `101110` | `VMLD <arg>`  |      +      | 3-5            | Загрузка из памяти в `AC` вектора машинных слов, для которых в `MASK` установлена `1` |
-| `101111` | `VMST <arg>`  | Кроме `IMM` | 4-5            | Сохранение из `AC` в память вектора машинных слов, для которых в `MASK` установлена `1` |
+| `101000` | `VMEQ <arg>`  |      +      | 3-4            | Установка `MASK` на основе результата сравнения `AC = <arg>` |
+| `101001` | `VMNE <arg>`  |      +      | 3-4            | Установка `MASK` на основе результата сравнения `AC /= <arg>` |
+| `101010` | `VMLT <arg>`  |      +      | 3-4            | Установка `MASK` на основе результата сравнения `AC < <arg>` |
+| `101011` | `VMLE <arg>`  |      +      | 3-4            | Установка `MASK` на основе результата сравнения `AC <= <arg>` |
+| `101100` | `VMGT <arg>`  |      +      | 3-4            | Установка `MASK` на основе результата сравнения `AC > <arg>` |
+| `101101` | `VMGT <arg>`  |      +      | 3-4            | Установка `MASK` на основе результата сравнения `AC >= <arg>` |
+| `101110` | `VMLD <arg>`  |      +      | 3-4            | Загрузка из памяти в `AC` вектора машинных слов, для которых в `MASK` установлена `1` |
+| `101111` | `VMST <arg>`  | Кроме `IMM` | 3-4            | Сохранение из `AC` в память вектора машинных слов, для которых в `MASK` установлена `1` |
 
 
 \*Количество тактов записано без учета цикла прерывания
@@ -488,9 +490,9 @@ options:
 
 - **Определение пользовательских функций**
 
-  Для скалярных функций генерируется код для каждого выражения в теле функции и сохраняется адрес первой машинной инструкции для дальнейшего осуществления вызовов функции.
+  Для скалярных функций генерируется код для каждого выражения в теле функции и сохраняется адрес первой машинной инструкции для дальнейшего осуществления вызовов функции. В конце тела функции добавляется инструкция `RET` (`IRET`, если функция является обработчиком прерываний).
 
-  Для векторных функций генерируется векторный код для обработки элементов массива, длина которого кратна `4` (длина вектора), скалярный код для обработки оставшихся элементов и завершающий код цикла. Так же, как и для скалярных функций, сохраняется адрес первой инструкции.
+  Для векторных функций генерируется векторный код для обработки элементов массива, длина которого кратна `4` (длина вектора), скалярный код для обработки оставшихся элементов и завершающий код цикла. Так же, как и для скалярных функций, сохраняется адрес первой инструкции и добавляется инструкция `RET`.
 
 - **Чтение и запись переменных и портов**
 
@@ -737,19 +739,24 @@ options:
   - смещение из памяти;
 - `sel_ar` — выбрать адрес для записи в `AR`:
   - из `PC`;
-  - из `PC` со сдвигом на `1`;
+  - из следующего `PC`;
   - из `SP` со сдвигом;
   - из `SP`;
   - из памяти;
 - `sel_addr` — выбрать адрес для чтения из памяти:
   - из `AR`;
   - из `PC`;
+  - из следующего `PC`;
 - `sel_out` — выбрать вывод:
   - из `AC`;
   - из `MASK`;
   - из `FLAGS`;
   - из `PC`;
-- `op` — код операции для выполнения на АЛУ.
+- `op` — код операции для выполнения на АЛУ;
+- `rd_in` — включить чтение из устройства ввода;
+- `rd_mem` — включить чтение из памяти;
+- `wr_mem` — включить запись в память;
+- `wr_out` — включить запись в устройство вывода.
 
 ### Control Unit
 
@@ -852,10 +859,10 @@ options:
 
   | Тест            | Кол-во тактов | Кол-во инструкций | Прирост производительности |
   | --------------- | :-----------: | :---------------: | :------------------------: |
-  | `simple_scalar` | 5049          | 1481              | -                          |
-  | `simple_vector` | 2887          | 839               | 43%                        |
+  | `simple_scalar` | 4591          | 1521              | -                          |
+  | `simple_vector` | 2688          | 879               | 41%                        |
 
-  Прирост производительности вызван тем, что векторные инструкции позволяют одновременно обрабатывать четыре элемента массива.
+  Прирост производительности в 1,7 раз вызван тем, что векторные инструкции позволяют одновременно обрабатывать четыре элемента массива.
 
 - [`scalar`](./golden/scalar.yaml) и [`vector`](./golden/vector.yaml) — вычислить модули разностей элементов двух массивов
 
@@ -863,8 +870,8 @@ options:
 
   | Тест     | Кол-во тактов | Кол-во инструкций | Прирост производительности |
   | -------- | :-----------: | :---------------: | :------------------------: |
-  | `scalar` | 4395          | 1305              | -                          |
-  | `vector` | 4069          | 1206              | 7%                         |
+  | `scalar` | 4230          | 1388              | -                          |
+  | `vector` | 3935          | 1289              | 7%                         |
 
   Прирост производительности не так значителен по сравнению с предыдущим примером, потому что используются операторы ветвления, которые требуют выполнения обеих ветвей в векторной реализации.
 
@@ -1009,7 +1016,7 @@ options:
 
     ------------------------ Statistics ------------------------
     Instructions executed: 289
-    Ticks: 994
+    Ticks: 862
     -------------------------- Output --------------------------
     String: "Hello, world!
     "
@@ -1020,96 +1027,132 @@ options:
     <summary>Журнал работы</summary>
 
     ```
-    DEBUG:root: * Tick 1     | FETCH INSTR: IR <- MEM[PC]                         | IR=NOP,    PC=0x0,    AR=0x0,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
-    DEBUG:root:   Tick 2     | FETCH ADDR: PC, AR <- PC + 1                       | IR=JMP,    PC=0x0,    AR=0x0,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
-    DEBUG:root:   Tick 3     | INT: PC <- 0xAC                                    | IR=JMP,    PC=0x1,    AR=0x1,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
-    DEBUG:root: * Tick 4     | FETCH INSTR: IR <- MEM[PC]                         | IR=JMP,    PC=0xAC,   AR=0x1,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
-    DEBUG:root:   Tick 5     | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xAC,   AR=0x1,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
-    DEBUG:root:   Tick 6     | LD 10 @ 0xAD                                       | IR=LD,     PC=0xAD,   AR=0xAD,   SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
-    DEBUG:root: * Tick 7     | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xB1,   AR=0xAD,   SP=0x1000, NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[] | Output=[], []
-    DEBUG:root:   Tick 8     | PUSH                                               | IR=PUSH,   PC=0xB1,   AR=0xAD,   SP=0x1000, NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[] | Output=[], []
-    DEBUG:root:   Tick 9     | PUSH                                               | IR=PUSH,   PC=0xB1,   AR=0xFFC,  SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0] | Output=[], []
-    DEBUG:root: * Tick 10    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xB2,   AR=0xFFC,  SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10] | Output=[], []
-    DEBUG:root:   Tick 11    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xB2,   AR=0xFFC,  SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10] | Output=[], []
-    DEBUG:root:   Tick 12    | LD 0 @ 0xB3                                        | IR=LD,     PC=0xB3,   AR=0xB3,   SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10] | Output=[], []
-    DEBUG:root: * Tick 13    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xB7,   AR=0xB3,   SP=0xFFC,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10] | Output=[], []
-    DEBUG:root:   Tick 14    | PUSH                                               | IR=PUSH,   PC=0xB7,   AR=0xB3,   SP=0xFFC,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10] | Output=[], []
-    DEBUG:root:   Tick 15    | PUSH                                               | IR=PUSH,   PC=0xB7,   AR=0xFF8,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
-    DEBUG:root: * Tick 16    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xB8,   AR=0xFF8,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
-    DEBUG:root:   Tick 17    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xB8,   AR=0xFF8,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
-    DEBUG:root:   Tick 18    | FETCH ADDR: AR <- SP + 4                           | IR=LD,     PC=0xB9,   AR=0xB9,   SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
-    DEBUG:root:   Tick 19    | LD 10 @ 0xFFC                                      | IR=LD,     PC=0xB9,   AR=0xFFC,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
-    DEBUG:root: * Tick 20    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xBD,   AR=0xFFC,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 10] | Output=[], []
-    DEBUG:root:   Tick 21    | PUSH                                               | IR=PUSH,   PC=0xBD,   AR=0xFFC,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 10] | Output=[], []
-    DEBUG:root:   Tick 22    | PUSH                                               | IR=PUSH,   PC=0xBD,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 23    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xBE,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 24    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xBE,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 25    | FETCH ADDR: AR <- SP + 4                           | IR=LD,     PC=0xBF,   AR=0xBF,   SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 26    | LD 0 @ 0xFF8                                       | IR=LD,     PC=0xBF,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 27    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xC3,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 28    | FETCH ADDR: PC, AR <- PC + 1                       | IR=ADD,    PC=0xC3,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 29    | FETCH ADDR: AR <- SP + 0                           | IR=ADD,    PC=0xC4,   AR=0xC4,   SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 30    | ADD 10 @ 0xFF4                                     | IR=ADD,    PC=0xC4,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 31    | FETCH INSTR: IR <- MEM[PC]                         | IR=ADD,    PC=0xC8,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 32    | PUSH                                               | IR=PUSH,   PC=0xC8,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 33    | PUSH                                               | IR=PUSH,   PC=0xC8,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 34    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xC9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 35    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xC9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 36    | FETCH ADDR: AR <- SP + 0                           | IR=LD,     PC=0xCA,   AR=0xCA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 37    | FETCH ADDR INDIRECT: AR <- MEM[AR]                 | IR=LD,     PC=0xCA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 38    | LD 1819043144 @ 0xA                                | IR=LD,     PC=0xCA,   AR=0xA,    SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 39    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xCE,   AR=0xA,    SP=0xFF0,  NZVC=0000, MASK=0000, AC=[1819043144, 0, 0, 0] | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 40    | FETCH ADDR: PC, AR <- PC + 1                       | IR=AND,    PC=0xCE,   AR=0xA,    SP=0xFF0,  NZVC=0000, MASK=0000, AC=[1819043144, 0, 0, 0] | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 41    | AND 255 @ 0xCF                                     | IR=AND,    PC=0xCF,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[1819043144, 0, 0, 0] | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 42    | FETCH INSTR: IR <- MEM[PC]                         | IR=AND,    PC=0xD3,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 43    | POP                                                | IR=POP,    PC=0xD3,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 44    | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0xD4,   AR=0xCF,   SP=0xFF4,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 45    | PUSH                                               | IR=PUSH,   PC=0xD4,   AR=0xCF,   SP=0xFF4,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 46    | PUSH                                               | IR=PUSH,   PC=0xD4,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 47    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xD5,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 48    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xD5,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 49    | FETCH ADDR: AR <- SP + 0                           | IR=LD,     PC=0xD6,   AR=0xD6,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 50    | LD 72 @ 0xFF0                                      | IR=LD,     PC=0xD6,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 51    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 52    | FETCH ADDR: PC, AR <- PC + 1                       | IR=CMP,    PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 53    | CMP 0 @ 0xDB                                       | IR=CMP,    PC=0xDB,   AR=0xDB,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 54    | FETCH INSTR: IR <- MEM[PC]                         | IR=CMP,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 55    | FETCH ADDR: PC, AR <- PC + 1                       | IR=JEQ,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 56    | INT: PC <- PC + 4                                  | IR=JEQ,    PC=0xE0,   AR=0xE0,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 57    | FETCH INSTR: IR <- MEM[PC]                         | IR=JEQ,    PC=0xE4,   AR=0xE0,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 58    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xE4,   AR=0xE0,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 59    | FETCH ADDR: AR <- SP + 0                           | IR=LD,     PC=0xE5,   AR=0xE5,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 60    | LD 72 @ 0xFF0                                      | IR=LD,     PC=0xE5,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 61    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xE9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 62    | FETCH ADDR: PC, AR <- PC + 1                       | IR=OUT,    PC=0xE9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 63    | OUT 1 @ 0xEA                                       | IR=OUT,    PC=0xEA,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root:   Tick 64    | OUT                                                | IR=OUT,    PC=0xEA,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
-    DEBUG:root: * Tick 65    | FETCH INSTR: IR <- MEM[PC]                         | IR=OUT,    PC=0xEE,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=['H'], []
-    DEBUG:root:   Tick 66    | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0xEE,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=['H'], []
-    DEBUG:root:   Tick 67    | FETCH ADDR: AR <- SP + 8                           | IR=LD,     PC=0xEF,   AR=0xEF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=['H'], []
+    DEBUG   simulator   * Tick 1     | FETCH INSTR: IR <- MEM[PC]                         | IR=NOP,    PC=0x0,    AR=0x0,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
+    DEBUG   simulator     Tick 2     | FETCH ADDR: AR <- PC + 1                           | IR=JMP,    PC=0x0,    AR=0x0,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
+    DEBUG   simulator     Tick 3     | INT: PC <- 0xAC                                    | IR=JMP,    PC=0x1,    AR=0x1,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
+    DEBUG   simulator   * Tick 4     | FETCH INSTR: IR <- MEM[PC]                         | IR=JMP,    PC=0xAC,   AR=0x1,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
+    DEBUG   simulator     Tick 5     | FETCH ADDR: AR <- PC + 1                           | IR=LD,     PC=0xAC,   AR=0x1,    SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
+    DEBUG   simulator     Tick 6     | LD 10 @ 0xAD                                       | IR=LD,     PC=0xAD,   AR=0xAD,   SP=0x1000, NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[] | Output=[], []
+    DEBUG   simulator   * Tick 7     | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xB1,   AR=0xAD,   SP=0x1000, NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[] | Output=[], []
+    DEBUG   simulator     Tick 8     | PUSH                                               | IR=PUSH,   PC=0xB1,   AR=0xAD,   SP=0x1000, NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[] | Output=[], []
+    DEBUG   simulator     Tick 9     | PUSH                                               | IR=PUSH,   PC=0xB1,   AR=0xFFC,  SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0] | Output=[], []
+    DEBUG   simulator   * Tick 10    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xB2,   AR=0xFFC,  SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10] | Output=[], []
+    DEBUG   simulator     Tick 11    | FETCH ADDR: AR <- PC + 1                           | IR=LD,     PC=0xB2,   AR=0xFFC,  SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10] | Output=[], []
+    DEBUG   simulator     Tick 12    | LD 0 @ 0xB3                                        | IR=LD,     PC=0xB3,   AR=0xB3,   SP=0xFFC,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10] | Output=[], []
+    DEBUG   simulator   * Tick 13    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xB7,   AR=0xB3,   SP=0xFFC,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10] | Output=[], []
+    DEBUG   simulator     Tick 14    | PUSH                                               | IR=PUSH,   PC=0xB7,   AR=0xB3,   SP=0xFFC,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10] | Output=[], []
+    DEBUG   simulator     Tick 15    | PUSH                                               | IR=PUSH,   PC=0xB7,   AR=0xFF8,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 16    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xB8,   AR=0xFF8,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
+    DEBUG   simulator     Tick 17    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xB8,   AR=0xFF8,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
+    DEBUG   simulator     Tick 18    | LD 10 @ 0xFFC                                      | IR=LD,     PC=0xB9,   AR=0xFFC,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 19    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xBD,   AR=0xFFC,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 10] | Output=[], []
+    DEBUG   simulator     Tick 20    | PUSH                                               | IR=PUSH,   PC=0xBD,   AR=0xFFC,  SP=0xFF8,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 10] | Output=[], []
+    DEBUG   simulator     Tick 21    | PUSH                                               | IR=PUSH,   PC=0xBD,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 22    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xBE,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 23    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xBE,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 24    | LD 0 @ 0xFF8                                       | IR=LD,     PC=0xBF,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 25    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xC3,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 26    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=ADD,    PC=0xC3,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 27    | ADD 10 @ 0xFF4                                     | IR=ADD,    PC=0xC4,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 28    | FETCH INSTR: IR <- MEM[PC]                         | IR=ADD,    PC=0xC8,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 29    | PUSH                                               | IR=PUSH,   PC=0xC8,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 30    | PUSH                                               | IR=PUSH,   PC=0xC8,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[0, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 31    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xC9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 32    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xC9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 33    | FETCH ADDR INDIRECT: AR <- MEM[AR]                 | IR=LD,     PC=0xCA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 34    | LD 1819043144 @ 0xA                                | IR=LD,     PC=0xCA,   AR=0xA,    SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 35    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xCE,   AR=0xA,    SP=0xFF0,  NZVC=0000, MASK=0000, AC=[1819043144, 0, 0, 0] | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 36    | FETCH ADDR: AR <- PC + 1                           | IR=AND,    PC=0xCE,   AR=0xA,    SP=0xFF0,  NZVC=0000, MASK=0000, AC=[1819043144, 0, 0, 0] | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 37    | AND 255 @ 0xCF                                     | IR=AND,    PC=0xCF,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[1819043144, 0, 0, 0] | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 38    | FETCH INSTR: IR <- MEM[PC]                         | IR=AND,    PC=0xD3,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 39    | POP                                                | IR=POP,    PC=0xD3,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 40    | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0xD4,   AR=0xCF,   SP=0xFF4,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 41    | PUSH                                               | IR=PUSH,   PC=0xD4,   AR=0xCF,   SP=0xFF4,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 42    | PUSH                                               | IR=PUSH,   PC=0xD4,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[10, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 43    | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xD5,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 44    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xD5,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 45    | LD 72 @ 0xFF0                                      | IR=LD,     PC=0xD6,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 46    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 47    | FETCH ADDR: AR <- PC + 1                           | IR=CMP,    PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 48    | CMP 0 @ 0xDB                                       | IR=CMP,    PC=0xDB,   AR=0xDB,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 49    | FETCH INSTR: IR <- MEM[PC]                         | IR=CMP,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 50    | FETCH ADDR: AR <- PC + 1                           | IR=JEQ,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 51    | INT: PC <- PC + 4                                  | IR=JEQ,    PC=0xE0,   AR=0xE0,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 52    | FETCH INSTR: IR <- MEM[PC]                         | IR=JEQ,    PC=0xE4,   AR=0xE0,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 53    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xE4,   AR=0xE0,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 54    | LD 72 @ 0xFF0                                      | IR=LD,     PC=0xE5,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 55    | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xE9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 56    | FETCH ADDR: AR <- PC + 1                           | IR=OUT,    PC=0xE9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 57    | OUT 1 @ 0xEA                                       | IR=OUT,    PC=0xEA,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator     Tick 58    | OUT                                                | IR=OUT,    PC=0xEA,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=[], []
+    DEBUG   simulator   * Tick 59    | FETCH INSTR: IR <- MEM[PC]                         | IR=OUT,    PC=0xEE,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=['H'], []
+    DEBUG   simulator     Tick 60    | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xEE,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[72, 0, 0, 0]    | Stack=[72, 10, 0, 10] | Output=['H'], []
     
     ...
 
-    DEBUG:root: * Tick 975   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 976   | FETCH ADDR: PC, AR <- PC + 1                       | IR=CMP,    PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 977   | CMP 0 @ 0xDB                                       | IR=CMP,    PC=0xDB,   AR=0xDB,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 978   | FETCH INSTR: IR <- MEM[PC]                         | IR=CMP,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 979   | FETCH ADDR: PC, AR <- PC + 1                       | IR=JEQ,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 980   | INT: PC <- 0x112                                   | IR=JEQ,    PC=0xE0,   AR=0xE0,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 981   | FETCH INSTR: IR <- MEM[PC]                         | IR=JEQ,    PC=0x112,  AR=0xE0,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 982   | FETCH ADDR: PC, AR <- PC + 1                       | IR=LD,     PC=0x112,  AR=0xE0,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 983   | FETCH ADDR: AR <- SP + 8                           | IR=LD,     PC=0x113,  AR=0x113,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 984   | LD 14 @ 0xFF8                                      | IR=LD,     PC=0x113,  AR=0xFF8,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 985   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0x117,  AR=0xFF8,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 986   | POP                                                | IR=POP,    PC=0x117,  AR=0xFF8,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 987   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x118,  AR=0xFF8,  SP=0xFF4,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 988   | POP                                                | IR=POP,    PC=0x118,  AR=0xFF8,  SP=0xFF4,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 989   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x119,  AR=0xFF8,  SP=0xFF8,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 990   | POP                                                | IR=POP,    PC=0x119,  AR=0xFF8,  SP=0xFF8,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 991   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x11A,  AR=0xFF8,  SP=0xFFC,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 992   | POP                                                | IR=POP,    PC=0x11A,  AR=0xFF8,  SP=0xFFC,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root: * Tick 993   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x11B,  AR=0xFF8,  SP=0x1000, NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
-    DEBUG:root:   Tick 994   | HALT                                               | IR=HALT,   PC=0x11B,  AR=0xFF8,  SP=0x1000, NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 800   | FETCH INSTR: IR <- MEM[PC]                         | IR=OUT,    PC=0xEE,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 801   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xEE,   AR=0xEA,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 802   | LD 13 @ 0xFF8                                      | IR=LD,     PC=0xEF,   AR=0xFF8,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 803   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xF3,   AR=0xFF8,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[13, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 804   | FETCH ADDR: AR <- PC + 1                           | IR=ADD,    PC=0xF3,   AR=0xFF8,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[13, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 805   | ADD 1 @ 0xF4                                       | IR=ADD,    PC=0xF4,   AR=0xF4,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[13, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 806   | FETCH INSTR: IR <- MEM[PC]                         | IR=ADD,    PC=0xF8,   AR=0xF4,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 807   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=ST,     PC=0xF8,   AR=0xF4,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 808   | ST 14 @ 0xFF8                                      | IR=ST,     PC=0xF9,   AR=0xFF8,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 10, 13, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 809   | FETCH INSTR: IR <- MEM[PC]                         | IR=ST,     PC=0xFD,   AR=0xFF8,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 810   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xFD,   AR=0xFF8,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 811   | LD 10 @ 0xFF4                                      | IR=LD,     PC=0xFE,   AR=0xFF4,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 812   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0x102,  AR=0xFF4,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 813   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=ST,     PC=0x102,  AR=0xFF4,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 814   | ST 10 @ 0xFF4                                      | IR=ST,     PC=0x103,  AR=0xFF4,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 815   | FETCH INSTR: IR <- MEM[PC]                         | IR=ST,     PC=0x107,  AR=0xFF4,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 816   | POP                                                | IR=POP,    PC=0x107,  AR=0xFF4,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 817   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x108,  AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 818   | FETCH ADDR: AR <- PC + 1                           | IR=JMP,    PC=0x108,  AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 819   | INT: PC <- 0xBE                                    | IR=JMP,    PC=0x109,  AR=0x109,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 820   | FETCH INSTR: IR <- MEM[PC]                         | IR=JMP,    PC=0xBE,   AR=0x109,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 821   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xBE,   AR=0x109,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 822   | LD 14 @ 0xFF8                                      | IR=LD,     PC=0xBF,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[10, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 823   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xC3,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 824   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=ADD,    PC=0xC3,   AR=0xFF8,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 825   | ADD 10 @ 0xFF4                                     | IR=ADD,    PC=0xC4,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 826   | FETCH INSTR: IR <- MEM[PC]                         | IR=ADD,    PC=0xC8,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 827   | PUSH                                               | IR=PUSH,   PC=0xC8,   AR=0xFF4,  SP=0xFF4,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 828   | PUSH                                               | IR=PUSH,   PC=0xC8,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[10, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 829   | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xC9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 830   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xC9,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 831   | FETCH ADDR INDIRECT: AR <- MEM[AR]                 | IR=LD,     PC=0xCA,   AR=0xFF0,  SP=0xFF0,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 832   | LD 2048 @ 0x18                                     | IR=LD,     PC=0xCA,   AR=0x18,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[24, 0, 0, 0]    | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 833   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xCE,   AR=0x18,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[2048, 0, 0, 0]  | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 834   | FETCH ADDR: AR <- PC + 1                           | IR=AND,    PC=0xCE,   AR=0x18,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[2048, 0, 0, 0]  | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 835   | AND 255 @ 0xCF                                     | IR=AND,    PC=0xCF,   AR=0xCF,   SP=0xFF0,  NZVC=0000, MASK=0000, AC=[2048, 0, 0, 0]  | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 836   | FETCH INSTR: IR <- MEM[PC]                         | IR=AND,    PC=0xD3,   AR=0xCF,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 837   | POP                                                | IR=POP,    PC=0xD3,   AR=0xCF,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 838   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0xD4,   AR=0xCF,   SP=0xFF4,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 839   | PUSH                                               | IR=PUSH,   PC=0xD4,   AR=0xCF,   SP=0xFF4,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 840   | PUSH                                               | IR=PUSH,   PC=0xD4,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[24, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 841   | FETCH INSTR: IR <- MEM[PC]                         | IR=PUSH,   PC=0xD5,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 842   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0xD5,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 843   | LD 0 @ 0xFF0                                       | IR=LD,     PC=0xD6,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 844   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 845   | FETCH ADDR: AR <- PC + 1                           | IR=CMP,    PC=0xDA,   AR=0xFF0,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 846   | CMP 0 @ 0xDB                                       | IR=CMP,    PC=0xDB,   AR=0xDB,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 847   | FETCH INSTR: IR <- MEM[PC]                         | IR=CMP,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 848   | FETCH ADDR: AR <- PC + 1                           | IR=JEQ,    PC=0xDF,   AR=0xDB,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 849   | INT: PC <- 0x112                                   | IR=JEQ,    PC=0xE0,   AR=0xE0,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 850   | FETCH INSTR: IR <- MEM[PC]                         | IR=JEQ,    PC=0x112,  AR=0xE0,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 851   | FETCH ADDR: AR <- SP + MEM[PC + 1]                 | IR=LD,     PC=0x112,  AR=0xE0,   SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 852   | LD 14 @ 0xFF8                                      | IR=LD,     PC=0x113,  AR=0xFF8,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[0, 0, 0, 0]     | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 853   | FETCH INSTR: IR <- MEM[PC]                         | IR=LD,     PC=0x117,  AR=0xFF8,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 854   | POP                                                | IR=POP,    PC=0x117,  AR=0xFF8,  SP=0xFF0,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[0, 10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 855   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x118,  AR=0xFF8,  SP=0xFF4,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 856   | POP                                                | IR=POP,    PC=0x118,  AR=0xFF8,  SP=0xFF4,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10, 14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 857   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x119,  AR=0xFF8,  SP=0xFF8,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 858   | POP                                                | IR=POP,    PC=0x119,  AR=0xFF8,  SP=0xFF8,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[14, 10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 859   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x11A,  AR=0xFF8,  SP=0xFFC,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 860   | POP                                                | IR=POP,    PC=0x11A,  AR=0xFF8,  SP=0xFFC,  NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[10] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator   * Tick 861   | FETCH INSTR: IR <- MEM[PC]                         | IR=POP,    PC=0x11B,  AR=0xFF8,  SP=0x1000, NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
+    DEBUG   simulator     Tick 862   | HALT                                               | IR=HALT,   PC=0x11B,  AR=0xFF8,  SP=0x1000, NZVC=0100, MASK=0000, AC=[14, 0, 0, 0]    | Stack=[] | Output=['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!', '\n'], []
     ```
 
     </details>

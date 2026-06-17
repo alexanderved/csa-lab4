@@ -111,6 +111,19 @@ ADDRESSLESS_INSTRUCTIONS = {
     Opcode.VMNOT,
 }
 
+IMM_ONLY_INSTRUCTIONS = {
+    Opcode.JMP,
+    Opcode.JEQ,
+    Opcode.JNE,
+    Opcode.JLT,
+    Opcode.JLE,
+    Opcode.JGT,
+    Opcode.JGE,
+    Opcode.CALL,
+    Opcode.IN,
+    Opcode.OUT,
+}
+
 CONTROL_INSTRUCTIONS = {
     Opcode.HALT,
     Opcode.JMP,
@@ -143,21 +156,6 @@ VECTOR_INSTRUCTIONS = {
     Opcode.VMGE,
     Opcode.VMLD,
     Opcode.VMST,
-}
-
-MASKED_INSTRUCTIONS = {
-    Opcode.VMLD,
-    Opcode.VMST,
-}
-
-MASK_GEN_INSTRUCTIONS = {
-    Opcode.VMNOT,
-    Opcode.VMEQ,
-    Opcode.VMNE,
-    Opcode.VMLT,
-    Opcode.VMLE,
-    Opcode.VMGT,
-    Opcode.VMGE,
 }
 
 ADDRESSLESS_INSTRUCTION_SIZE = 1
