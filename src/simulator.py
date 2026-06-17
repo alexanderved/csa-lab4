@@ -337,7 +337,6 @@ class InputDevice:
             raise ValueError("Запрос к устройству без сигнала готовности")
 
         self.last_read = self.idx
-        self.idx += 1
 
         if type(value) is int:
             return value
